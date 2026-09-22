@@ -1,0 +1,181 @@
+import { DayName } from "../types";
+
+export const INDONESIAN_DAYS: DayName[] = [
+  "Minggu",
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu"
+];
+
+/**
+ * Normalizes any variation of Indonesian day name to standard DayName
+ */
+export function normalizeDayName(raw: string): DayName | null {
+  if (!raw) return null;
+  const clean = raw.trim().toLowerCase().replace(/'/g, "");
+  if (clean.includes("senin")) return "Senin";
+  if (clean.includes("selasa")) return "Selasa";
+  if (clean.includes("rabu")) return "Rabu";
+  if (clean.includes("kamis")) return "Kamis";
+  if (clean.includes("jumat")) return "Jumat";
+  if (clean.includes("sabtu")) return "Sabtu";
+  if (clean.includes("minggu") || clean.includes("ahad")) return "Minggu";
+  return null;
+}
+
+/**
+ * Get Indonesian day name for a YYYY-MM-DD date string
+ */
+export function getDayFromDate(dateStr: string): DayName {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return INDONESIAN_DAYS[dt.getUTCDay()];
+}
+
+/**
+ * Format YYYY-MM-DD into DD/MM/YYYY
+ */
+export function formatDateToIndonesian(dateStr: string): string {
+  if (!dateStr || !dateStr.includes("-")) return dateStr;
+  const [y, m, d] = dateStr.split("-");
+  return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+}
+
+/**
+ * Parse DD/MM/YYYY into YYYY-MM-DD
+ */
+export function parseIndonesianDate(raw: string): string | null {
+  if (!raw) return null;
+  const clean = raw.trim();
+  const match = clean.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (!match) return null;
+  const d = match[1].padStart(2, "0");
+  const m = match[2].padStart(2, "0");
+  const y = match[3];
+  // Basic sanity check
+  const numD = parseInt(d, 10);
+  const numM = parseInt(m, 10);
+  if (numD < 1 || numD > 31 || numM < 1 || numM > 12) return null;
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Parse time string HH:MM, HH.MM, or H:MM into standardized HH:MM (24-hour)
+ */
+export function normalizeTimeString(raw: string): string | null {
+  if (!raw) return null;
+  const clean = raw.trim().replace(".", ":");
+  const parts = clean.split(":");
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Calculates duration in minutes with midnight rollover (R5, R6)
+ */
+export function calculateDuration(startTime: string, finishTime: string): {
+  durationMin: number;
+  isMidnightRollover: boolean;
+  isValid: boolean;
+  error?: string;
+} {
+  const normStart = normalizeTimeString(startTime);
+  const normFinish = normalizeTimeString(finishTime);
+
+  if (!normStart || !normFinish) {
+    return { durationMin: 0, isMidnightRollover: false, isValid: false, error: "Format jam tidak valid (HH:MM)" };
+  }
+
+  const [sh, sm] = normStart.split(":").map(Number);
+  const [fh, fm] = normFinish.split(":").map(Number);
+
+  const startTotalMinutes = sh * 60 + sm;
+  const finishTotalMinutes = fh * 60 + fm;
+
+  if (finishTotalMinutes >= startTotalMinutes) {
+    const diff = finishTotalMinutes - startTotalMinutes;
+    return {
+      durationMin: diff,
+      isMidnightRollover: false,
+      isValid: true
+    };
+  }
+
+  // Finish is earlier than Start -> Midnight rollover
+  const diffWithNextDay = (finishTotalMinutes + 1440) - startTotalMinutes;
+
+  // Rule R6: valid if duration after adding 24h is <= 12 hours (720 min)
+  if (diffWithNextDay <= 720) {
+    return {
+      durationMin: diffWithNextDay,
+      isMidnightRollover: true,
+      isValid: true
+    };
+  }
+
+  return {
+    durationMin: diffWithNextDay,
+    isMidnightRollover: true,
+    isValid: false,
+    error: "Durasi lewat tengah malam melebihi 12 jam (indikasi salah ketik jam)"
+  };
+}
+
+/**
+ * Format minutes into readable duration string: e.g. "30 mnt" or "1 j 15 mnt"
+ */
+export function formatDurationHuman(minutes: number): string {
+  if (minutes < 60) return `${minutes} mnt`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h} jam` : `${h} j ${m} mnt`;
+}
+
+/**
+ * Get current WIB (UTC+7) Date and Time
+ */
+export function getCurrentWIB(): {
+  isoDate: string;
+  dayName: DayName;
+  timeStr: string;
+  wibDateObj: Date;
+} {
+  const now = new Date();
+  // Format in Asia/Jakarta timezone
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(now);
+  let y = "2026", m = "01", d = "01", h = "00", min = "00";
+  for (const part of parts) {
+    if (part.type === "year") y = part.value;
+    if (part.type === "month") m = part.value;
+    if (part.type === "day") d = part.value;
+    if (part.type === "hour") h = part.value === "24" ? "00" : part.value;
+    if (part.type === "minute") min = part.value;
+  }
+
+  const isoDate = `${y}-${m}-${d}`;
+  const dayName = getDayFromDate(isoDate);
+  const timeStr = `${h.padStart(2, "0")}:${min.padStart(2, "0")}`;
+
+  return {
+    isoDate,
+    dayName,
+    timeStr,
+    wibDateObj: new Date(`${isoDate}T${timeStr}:00+07:00`)
+  };
+}

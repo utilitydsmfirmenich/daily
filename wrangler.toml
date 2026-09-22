@@ -1,0 +1,12 @@
+name = "log-harian-pid"
+compatibility_date = "2024-09-19"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "log-harian-db"
+database_id = "local-d1-db"
+migrations_dir = "migrations"
+
+[vars]
+JWT_SECRET = "log_harian_pid_super_secret_dev_key_2026_wib"
