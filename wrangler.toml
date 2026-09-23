@@ -10,7 +10,7 @@ not_found_handling = "single-page-application"
 [[d1_databases]]
 binding = "DB"
 database_name = "log-harian-db"
-database_id = "local-d1-db"
+database_id = "8402fc5f-8ab5-48a4-bcbf-f6bd66643cd6"
 migrations_dir = "migrations"
 
 [vars]
