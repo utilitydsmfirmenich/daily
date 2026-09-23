@@ -181,7 +181,9 @@ export const RecordPage: React.FC = () => {
   // Quick Action Button handler
   const handleQuickSelect = (kegText: string, katText: string) => {
     setKegiatan(kegText);
-    setKategori(katText);
+    if (katText) {
+      setKategori(katText);
+    }
     setTimeout(() => {
       if (kegiatanInputRef.current) {
         kegiatanInputRef.current.focus();

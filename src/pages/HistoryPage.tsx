@@ -701,7 +701,7 @@ export const HistoryPage: React.FC = () => {
                     setEditForm((prev) => ({
                       ...prev!,
                       kegiatan: kegText,
-                      kategori: katText
+                      kategori: katText ? katText : prev!.kategori
                     }));
                     setTimeout(() => {
                       if (editKegiatanRef.current) {
