@@ -40,7 +40,16 @@ jobs:
         if: success()
         run: |
           mkdir -p build-output
-          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/Log-Harian-PID.apk
+          APK_FILE=$(find . -name "*.apk" -type f | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "No APK file found! Searching for outputs:"
+            find . -name "*.apk"
+            find android -maxdepth 5
+            exit 1
+          fi
+          echo "Found APK at: $APK_FILE"
+          cp "$APK_FILE" build-output/Log-Harian-PID.apk
+          ls -lh build-output/
 
       - name: Upload APK Artifact
         if: success()
