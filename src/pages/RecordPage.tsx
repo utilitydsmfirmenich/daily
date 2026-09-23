@@ -14,6 +14,7 @@ import { Activity, ActivityDefaults, DayName } from "../types";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { QuickCategoryPills } from "../components/QuickCategoryPills";
+import { TodayActivitiesTable } from "../components/TodayActivitiesTable";
 import { generateActivitiesExcel } from "../lib/excel-generator";
 import { 
   Clock, 
@@ -26,7 +27,12 @@ import {
   ArrowRight,
   Bookmark,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  RotateCcw,
+  Edit3,
+  Trash2,
+  Check,
+  X
 } from "lucide-react";
 
 export const RecordPage: React.FC = () => {
@@ -64,6 +70,29 @@ export const RecordPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Today's preview activities
+  const [todayActivities, setTodayActivities] = useState<Activity[]>([]);
+  const [loadingTodayActivities, setLoadingTodayActivities] = useState(false);
+
+  // Edit Modal State
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [editForm, setEditForm] = useState<{
+    tanggal: string;
+    hari: DayName;
+    start_time: string;
+    finish_time: string;
+    kegiatan: string;
+    kategori: string;
+    keterangan: string;
+    highlight: boolean;
+  } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editKegiatanRef = useRef<HTMLTextAreaElement>(null);
+
+  // Undo delete snackbar
+  const [undoItem, setUndoItem] = useState<{ id: number; activity: Activity } | null>(null);
+  const [undoTimer, setUndoTimer] = useState<number | null>(null);
 
   const startInputRef = useRef<HTMLInputElement>(null);
   const kegiatanInputRef = useRef<HTMLTextAreaElement>(null);
@@ -162,6 +191,116 @@ export const RecordPage: React.FC = () => {
     setTanggal(newDate);
     if (newDate) {
       setHari(getDayFromDate(newDate));
+    }
+  };
+
+  // Load activities for current selected date
+  const loadTodayActivities = async (targetDate?: string) => {
+    const d = targetDate || tanggal;
+    if (!d) return;
+    setLoadingTodayActivities(true);
+    try {
+      const res = await api.getActivities({ from: d, to: d });
+      setTodayActivities(res.activities || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingTodayActivities(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tanggal) {
+      loadTodayActivities(tanggal);
+    }
+  }, [tanggal]);
+
+  // Edit Activity Handlers
+  const handleStartEdit = (act: Activity) => {
+    setEditingActivity(act);
+    setEditForm({
+      tanggal: act.tanggal,
+      hari: act.hari,
+      start_time: act.start_time,
+      finish_time: act.finish_time,
+      kegiatan: act.kegiatan,
+      kategori: act.kategori || "",
+      keterangan: act.keterangan || "",
+      highlight: act.highlight === 1
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingActivity || !editForm) return;
+    if (!editForm.kegiatan.trim()) {
+      alert("Kegiatan wajib diisi.");
+      return;
+    }
+
+    const dur = calculateDuration(editForm.start_time, editForm.finish_time);
+    if (!dur.isValid) {
+      alert(dur.error || "Waktu mulai dan selesai tidak valid.");
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const res = await api.updateActivity(editingActivity.id, {
+        tanggal: editForm.tanggal,
+        hari: editForm.hari,
+        start_time: editForm.start_time,
+        finish_time: editForm.finish_time,
+        kegiatan: editForm.kegiatan.trim(),
+        kategori: editForm.kategori.trim() || null,
+        keterangan: editForm.keterangan.trim() || null,
+        highlight: editForm.highlight ? 1 : 0
+      });
+
+      setTodayActivities((prev) =>
+        prev.map((a) => (a.id === editingActivity.id ? res.activity : a))
+      );
+      setEditingActivity(null);
+      setEditForm(null);
+      setSuccessMessage("Catatan kegiatan berhasil diperbarui!");
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      alert(err.message || "Gagal memperbarui catatan.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Delete & Undo Handlers
+  const handleDeleteActivity = async (act: Activity) => {
+    try {
+      await api.deleteActivity(act.id);
+      setTodayActivities((prev) => prev.filter((a) => a.id !== act.id));
+
+      if (undoTimer) clearTimeout(undoTimer);
+      setUndoItem({ id: act.id, activity: act });
+
+      const timer = window.setTimeout(() => {
+        setUndoItem(null);
+      }, 10000);
+      setUndoTimer(timer);
+    } catch (err: any) {
+      alert(err.message || "Gagal menghapus catatan.");
+    }
+  };
+
+  const handleUndoDelete = async () => {
+    if (!undoItem) return;
+    try {
+      const res = await api.restoreActivity(undoItem.id);
+      setTodayActivities((prev) =>
+        [...prev, res.activity].sort((a, b) => a.id - b.id || a.start_time.localeCompare(b.start_time))
+      );
+      setUndoItem(null);
+      if (undoTimer) clearTimeout(undoTimer);
+      setSuccessMessage("Penghapusan catatan berhasil dibatalkan!");
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      alert(err.message || "Gagal membatalkan penghapusan.");
     }
   };
 
@@ -317,6 +456,9 @@ export const RecordPage: React.FC = () => {
       const defs = await api.getDefaults();
       setDefaults(defs);
       setFinishTime(defs.finish_time);
+
+      // Reload today's activities preview table
+      await loadTodayActivities(tanggal);
 
       kegiatanInputRef.current?.focus();
     } catch (err: any) {
@@ -639,45 +781,220 @@ export const RecordPage: React.FC = () => {
         </form>
       </div>
 
-      {/* Last Activity Section */}
-      {defaults?.last_activity && (
-        <div className="mt-8 bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 sm:p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-2">
-              <History className="w-4 h-4 text-blue-400" />
-              <span>Catatan Terakhir Shift Ini ({formatDateToIndonesian(defaults.last_activity.tanggal)})</span>
-            </h3>
-            <Link
-              to="/riwayat"
-              className="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
-            >
-              <span>Buka Riwayat Lengkap</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+      {/* Today's Activities Preview Table */}
+      <div className="mt-8">
+        <TodayActivitiesTable
+          activities={todayActivities}
+          dateStr={tanggal}
+          loading={loadingTodayActivities}
+          onEdit={handleStartEdit}
+          onDelete={handleDeleteActivity}
+          onRefresh={() => loadTodayActivities(tanggal)}
+        />
+      </div>
 
-          <div className="bg-slate-900/80 border border-slate-700/80 rounded-xl p-3.5 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-              <div className="flex items-center gap-2 font-mono font-bold text-white">
-                <span>{defaults.last_activity.start_time}</span>
-                <span className="text-slate-500">→</span>
-                <span>{defaults.last_activity.finish_time}</span>
-                <span className="text-emerald-400 font-sans text-xs">
-                  ({defaults.last_activity.duration_min} mnt)
-                </span>
-              </div>
-              {defaults.last_activity.kategori && (
-                <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-[11px]">
-                  {defaults.last_activity.kategori}
-                </span>
-              )}
+      {/* Undo Snackbar Notification */}
+      {undoItem && (
+        <div className="fixed bottom-20 sm:bottom-6 right-6 z-50 bg-slate-800 border border-blue-500/40 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+          <span className="text-xs">Catatan berhasil dihapus.</span>
+          <button
+            type="button"
+            onClick={handleUndoDelete}
+            className="flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 bg-blue-600/20 px-2.5 py-1 rounded-md border border-blue-500/30 transition"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Batalkan (Undo)</span>
+          </button>
+        </div>
+      )}
+
+      {/* Edit Activity Modal */}
+      {editingActivity && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 bg-slate-900/40">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-blue-400" />
+                <span>Edit Catatan Kegiatan #{editingActivity.id}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingActivity(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-700 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <p className="text-slate-200 font-medium">{defaults.last_activity.kegiatan}</p>
-            {defaults.last_activity.keterangan && (
-              <p className="text-slate-400 text-[11px] mt-1 italic">
-                Ket: {defaults.last_activity.keterangan}
-              </p>
-            )}
+
+            <div className="p-5 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">Tanggal</label>
+                  <input
+                    type="date"
+                    value={editForm.tanggal}
+                    onChange={(e) => {
+                      const d = e.target.value;
+                      setEditForm((prev) => ({
+                        ...prev!,
+                        tanggal: d,
+                        hari: d ? getDayFromDate(d) : prev!.hari
+                      }));
+                    }}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">Hari</label>
+                  <select
+                    value={editForm.hari}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev!, hari: e.target.value as DayName }))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                  >
+                    {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">Start (HH:MM)</label>
+                  <input
+                    type="time"
+                    value={editForm.start_time}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev!, start_time: e.target.value }))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">Finish (HH:MM)</label>
+                  <input
+                    type="time"
+                    value={editForm.finish_time}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev!, finish_time: e.target.value }))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Duration Buttons in Edit Modal */}
+              <QuickDurationButtons
+                onSelectDuration={(minutes) => {
+                  let baseStart = editForm.start_time.trim();
+                  if (!baseStart) {
+                    baseStart = getCurrentWIB().timeStr;
+                    setEditForm((prev) => ({ ...prev!, start_time: baseStart }));
+                  }
+                  const newFinish = addMinutesToTime(baseStart, minutes);
+                  setEditForm((prev) => ({ ...prev!, finish_time: newFinish }));
+                }}
+                currentDurationMin={(() => {
+                  const d = calculateDuration(editForm.start_time, editForm.finish_time);
+                  return d.isValid ? d.durationMin : undefined;
+                })()}
+                className="mb-2"
+              />
+
+              <div>
+                <QuickActivityButtons
+                  onSelect={(kegText, katText) => {
+                    setEditForm((prev) => ({
+                      ...prev!,
+                      kegiatan: kegText,
+                      kategori: katText ? katText : prev!.kategori
+                    }));
+                    setTimeout(() => {
+                      if (editKegiatanRef.current) {
+                        editKegiatanRef.current.focus();
+                        const len = kegText.length;
+                        editKegiatanRef.current.setSelectionRange(len, len);
+                      }
+                    }, 50);
+                  }}
+                  className="mb-3"
+                />
+                <label className="block font-semibold text-slate-300 mb-1">Kegiatan *</label>
+                <textarea
+                  ref={editKegiatanRef}
+                  rows={3}
+                  value={editForm.kegiatan}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev!, kegiatan: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white resize-y"
+                />
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">Kategori</label>
+                    <input
+                      type="text"
+                      value={editForm.kategori}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev!, kategori: e.target.value }))}
+                      placeholder="Pilih cepat di bawah atau ketik..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">Keterangan</label>
+                    <input
+                      type="text"
+                      value={editForm.keterangan}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev!, keterangan: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Category Pills in Edit Modal */}
+                <QuickCategoryPills
+                  selectedCategory={editForm.kategori}
+                  onSelectCategory={(cat) => setEditForm((prev) => ({ ...prev!, kategori: cat }))}
+                />
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer pt-2">
+                <input
+                  type="checkbox"
+                  checked={editForm.highlight}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev!, highlight: e.target.checked }))}
+                  className="w-4 h-4 rounded border-slate-700 text-yellow-400 bg-slate-900"
+                />
+                <span className="text-slate-300 font-medium">Sorot Kuning (Highlight di Excel)</span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-3.5 bg-slate-900/60 border-t border-slate-700">
+              <button
+                type="button"
+                onClick={() => setEditingActivity(null)}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-300 font-medium transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={savingEdit}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow transition disabled:opacity-50"
+              >
+                {savingEdit ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Simpan Perubahan</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
