@@ -8,11 +8,13 @@ import {
   getDayFromDate, 
   formatDurationHuman, 
   calculateDuration,
-  getCurrentWIB 
+  getCurrentWIB,
+  addMinutesToTime 
 } from "../lib/time-utils";
 import { generateActivitiesExcel } from "../lib/excel-generator";
 import { ExportDialog } from "../components/ExportDialog";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
+import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { 
   History as HistoryIcon, 
   Search, 
@@ -694,6 +696,24 @@ export const HistoryPage: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* Quick Duration Buttons in Edit Modal */}
+              <QuickDurationButtons
+                onSelectDuration={(minutes) => {
+                  let baseStart = editForm.start_time.trim();
+                  if (!baseStart) {
+                    baseStart = getCurrentWIB().timeStr;
+                    setEditForm((prev) => ({ ...prev!, start_time: baseStart }));
+                  }
+                  const newFinish = addMinutesToTime(baseStart, minutes);
+                  setEditForm((prev) => ({ ...prev!, finish_time: newFinish }));
+                }}
+                currentDurationMin={(() => {
+                  const d = calculateDuration(editForm.start_time, editForm.finish_time);
+                  return d.isValid ? d.durationMin : undefined;
+                })()}
+                className="mb-2"
+              />
 
               <div>
                 <QuickActivityButtons

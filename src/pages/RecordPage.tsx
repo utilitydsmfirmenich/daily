@@ -7,10 +7,12 @@ import {
   getDayFromDate, 
   formatDurationHuman, 
   formatDateToIndonesian, 
-  getCurrentWIB 
+  getCurrentWIB,
+  addMinutesToTime 
 } from "../lib/time-utils";
 import { Activity, ActivityDefaults, DayName } from "../types";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
+import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { generateActivitiesExcel } from "../lib/excel-generator";
 import { 
   Clock, 
@@ -195,6 +197,17 @@ export const RecordPage: React.FC = () => {
 
   // Calculate duration live
   const durationResult = calculateDuration(startTime, finishTime);
+
+  // Quick Duration Handler
+  const handleSelectDuration = (minutes: number) => {
+    let baseStart = startTime.trim();
+    if (!baseStart) {
+      baseStart = liveWib.timeStr;
+      setStartTime(baseStart);
+    }
+    const newFinish = addMinutesToTime(baseStart, minutes);
+    setFinishTime(newFinish);
+  };
 
   // Category filter
   const handleCategoryInput = (val: string) => {
@@ -499,6 +512,14 @@ export const RecordPage: React.FC = () => {
                   {durationResult.isValid ? `(${durationResult.durationMin} menit)` : "Menunggu waktu valid"}
                 </span>
               </div>
+            </div>
+
+            {/* Quick Duration Buttons (+5m to +2h) */}
+            <div className="pt-3 mt-3 border-t border-slate-800/80">
+              <QuickDurationButtons
+                onSelectDuration={handleSelectDuration}
+                currentDurationMin={durationResult.isValid ? durationResult.durationMin : undefined}
+              />
             </div>
           </div>
 

@@ -179,3 +179,18 @@ export function getCurrentWIB(): {
     wibDateObj: new Date(`${isoDate}T${timeStr}:00+07:00`)
   };
 }
+
+/**
+ * Adds specified minutes to an HH:MM time string and returns standardized HH:MM (24-hour)
+ * Safely handles 24-hour midnight rollover (e.g. 23:45 + 30 min = 00:15)
+ */
+export function addMinutesToTime(timeStr: string, minutes: number): string {
+  const norm = normalizeTimeString(timeStr);
+  if (!norm) return "00:00";
+  const [h, m] = norm.split(":").map(Number);
+  const totalMinutes = h * 60 + m + minutes;
+  const normalizedTotal = ((totalMinutes % 1440) + 1440) % 1440;
+  const newH = Math.floor(normalizedTotal / 60);
+  const newM = normalizedTotal % 60;
+  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+}
