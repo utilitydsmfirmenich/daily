@@ -114,7 +114,7 @@ Layanan Cloudflare Pages dan Cloudflare D1 sepenuhnya **GRATIS** dan terhubung o
    - **Build command:** `npm run build`
    - **Build output directory:** `dist`
 5. Di bagian **Environment variables (advanced)**, tambahkan:
-   - Variable name: `NODE_VERSION`, Value: `18`
+   - Variable name: `NODE_VERSION`, Value: `20`
 6. Klik **Save and Deploy**.
 
 ### Langkah 3: Hubungkan (Binding) Database D1 ke Cloudflare Pages
