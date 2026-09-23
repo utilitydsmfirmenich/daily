@@ -35,7 +35,7 @@ jobs:
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-        run: gradle assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace --no-daemon
 
       - name: Prepare APK Artifact
         run: |
