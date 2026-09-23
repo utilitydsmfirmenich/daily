@@ -34,17 +34,21 @@ jobs:
         working-directory: ./android
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          gradle assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
+          if ! gradle assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log; then
+            echo "## ❌ Gradle Build Error" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 100 build.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
       - name: Prepare APK Artifact
-        if: success()
         run: |
           mkdir -p build-output
           APK_FILE=$(find . -name "*.apk" -type f | head -n 1)
           if [ -z "$APK_FILE" ]; then
-            echo "No APK file found! Searching for outputs:"
-            find . -name "*.apk"
-            find android -maxdepth 5
+            echo "No APK file found! Listing output directories:"
+            find . -maxdepth 6 -name "outputs" -o -name "*.apk"
             exit 1
           fi
           echo "Found APK at: $APK_FILE"
@@ -52,22 +56,14 @@ jobs:
           ls -lh build-output/
 
       - name: Upload APK Artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Log-Harian-PID-APK
           path: build-output/Log-Harian-PID.apk
           retention-days: 30
 
-      - name: Upload Build Log on Failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Gradle-Failure-Log
-          path: android/build.log
-
       - name: Create GitHub Release
-        if: success() && startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: build-output/Log-Harian-PID.apk
