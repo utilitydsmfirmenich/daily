@@ -125,7 +125,7 @@ Layanan Cloudflare Pages dan Cloudflare D1 sepenuhnya **GRATIS** dan terhubung o
    - **D1 database:** Pilih `log-harian-db` yang telah Anda buat di Langkah 1.
 4. Klik **Save**.
 5. Buka tab **Deployments**, klik titik tiga (⋯) pada deployment terakhir > pilih **Retry deployment** (agar binding database langsung aktif).
-6. Website kini sudah aktif dan live 100% di `https://utility-daily.pages.dev`!
+6. Website kini sudah aktif dan live 100% di `https://utility-daily.utility-dsmfirmenich.workers.dev`!
 
 ---
 
@@ -134,7 +134,7 @@ Layanan Cloudflare Pages dan Cloudflare D1 sepenuhnya **GRATIS** dan terhubung o
 Tersedia dua metode mudah untuk memasang aplikasi di perangkat Android:
 
 ### Metode A: Pasang Langsung sebagai PWA (Instan & Tanpa File APK)
-1. Buka tautan `https://utility-daily.pages.dev` di browser **Google Chrome** pada HP Android Anda.
+1. Buka tautan `https://utility-daily.utility-dsmfirmenich.workers.dev` di browser **Google Chrome** pada HP Android Anda.
 2. Ketuk ikon titik tiga (⋮) di pojok kanan atas browser atau ketuk banner pop-up *"Tambahkan Log PID ke Layar Utama"* yang muncul di bagian bawah layar.
 3. Pilih **Instal Aplikasi** (*Install app*) atau **Tambahkan ke Layar Utama** (*Add to Home screen*).
 4. Ikon aplikasi **Log PID** akan langsung terpasang di menu aplikasi Android Anda:
