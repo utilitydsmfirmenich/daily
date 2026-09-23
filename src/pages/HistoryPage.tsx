@@ -7,8 +7,10 @@ import {
   formatDateToIndonesian, 
   getDayFromDate, 
   formatDurationHuman, 
-  calculateDuration 
+  calculateDuration,
+  getCurrentWIB 
 } from "../lib/time-utils";
+import { generateActivitiesExcel } from "../lib/excel-generator";
 import { ExportDialog } from "../components/ExportDialog";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { 
@@ -16,6 +18,7 @@ import {
   Search, 
   UploadCloud, 
   Download, 
+  FileSpreadsheet,
   Edit3, 
   Trash2, 
   Check, 
@@ -44,6 +47,8 @@ export const HistoryPage: React.FC = () => {
 
   // Modals & Snackbars
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportingToday, setExportingToday] = useState(false);
+  const [exportStatus, setExportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [editForm, setEditForm] = useState<{
     tanggal: string;
@@ -201,6 +206,64 @@ export const HistoryPage: React.FC = () => {
     }
   };
 
+  const handleQuickExportToday = async () => {
+    if (!user) return;
+    setExportingToday(true);
+    setExportStatus(null);
+    try {
+      let targetDate = getCurrentWIB().isoDate;
+      try {
+        const defs = await api.getDefaults();
+        if (defs && defs.tanggal) {
+          targetDate = defs.tanggal;
+        }
+      } catch {
+        // Fallback to getCurrentWIB().isoDate
+      }
+
+      const activities = await api.getExportData(targetDate, targetDate);
+
+      if (!activities || activities.length === 0) {
+        setExportStatus({
+          type: "error",
+          message: `Belum ada catatan kegiatan untuk tanggal/shift ${formatDateToIndonesian(targetDate)}.`
+        });
+        setTimeout(() => setExportStatus(null), 5000);
+        return;
+      }
+
+      const buffer = await generateActivitiesExcel(user.pid, activities, {
+        layout: "as_original",
+        durationFormat: "minutes"
+      });
+
+      const filename = `pencatatan_kegiatan_${user.pid}_${targetDate}.xlsx`;
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportStatus({
+        type: "success",
+        message: `File "${filename}" berhasil diunduh (${activities.length} kegiatan)!`
+      });
+      setTimeout(() => setExportStatus(null), 5000);
+    } catch (err: any) {
+      setExportStatus({
+        type: "error",
+        message: err.message || "Gagal mengunduh Excel hari ini."
+      });
+      setTimeout(() => setExportStatus(null), 5000);
+    } finally {
+      setExportingToday(false);
+    }
+  };
+
   const toggleCard = (id: number) => {
     setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
   };
@@ -219,7 +282,7 @@ export const HistoryPage: React.FC = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center flex-wrap gap-2.5">
           <Link
             to="/riwayat/impor"
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition shadow-sm"
@@ -229,14 +292,48 @@ export const HistoryPage: React.FC = () => {
           </Link>
           <button
             type="button"
-            onClick={() => setExportOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition shadow-sm"
+            onClick={handleQuickExportToday}
+            disabled={exportingToday}
+            title="Unduh langsung Excel catatan kegiatan shift / hari ini"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold text-white transition shadow-sm"
           >
-            <Download className="w-4 h-4" />
+            {exportingToday ? (
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4" />
+            )}
+            <span>{exportingToday ? "Mengekspor..." : "Ekspor Hari Ini"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition shadow-sm"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
             <span>Ekspor Excel</span>
           </button>
         </div>
       </div>
+
+      {/* Export Status Banner */}
+      {exportStatus && (
+        <div
+          className={`mb-4 px-4 py-3 rounded-xl border text-xs font-medium flex items-center justify-between transition-all ${
+            exportStatus.type === "success"
+              ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300"
+              : "bg-red-950/40 border-red-500/30 text-red-300"
+          }`}
+        >
+          <span>{exportStatus.message}</span>
+          <button
+            type="button"
+            onClick={() => setExportStatus(null)}
+            className="text-slate-400 hover:text-white ml-2 text-sm font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="bg-slate-800/90 border border-slate-700/80 p-4 rounded-2xl mb-6 shadow-sm">

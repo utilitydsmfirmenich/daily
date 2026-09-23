@@ -11,6 +11,7 @@ import {
 } from "../lib/time-utils";
 import { Activity, ActivityDefaults, DayName } from "../types";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
+import { generateActivitiesExcel } from "../lib/excel-generator";
 import { 
   Clock, 
   Sparkles, 
@@ -20,7 +21,9 @@ import {
   Calendar, 
   History, 
   ArrowRight,
-  Bookmark
+  Bookmark,
+  FileSpreadsheet,
+  Loader2
 } from "lucide-react";
 
 export const RecordPage: React.FC = () => {
@@ -205,6 +208,48 @@ export const RecordPage: React.FC = () => {
     setShowCategoryDropdown(true);
   };
 
+  // Quick 1-click Export Today Handler
+  const [exportingToday, setExportingToday] = useState(false);
+
+  const handleExportToday = async () => {
+    if (!user) return;
+    setExportingToday(true);
+    try {
+      const targetDate = defaults?.is_shift_date && isShiftActive ? defaults.tanggal : tanggal;
+      const activities = await api.getExportData(targetDate, targetDate);
+
+      if (!activities || activities.length === 0) {
+        setErrorMessage(`Belum ada catatan kegiatan untuk tanggal/shift ${formatDateToIndonesian(targetDate)}.`);
+        setTimeout(() => setErrorMessage(null), 5000);
+        return;
+      }
+
+      const buffer = await generateActivitiesExcel(user.pid, activities, {
+        layout: "as_original",
+        durationFormat: "minutes"
+      });
+
+      const filename = `pencatatan_kegiatan_${user.pid}_${targetDate}.xlsx`;
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setSuccessMessage(`File "${filename}" berhasil diunduh (${activities.length} kegiatan)!`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Gagal mengunduh Excel hari ini.");
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setExportingToday(false);
+    }
+  };
+
   // Submit Handler
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -289,13 +334,30 @@ export const RecordPage: React.FC = () => {
           <h1 className="text-lg font-bold text-white mt-1">Catat Kegiatan Harian</h1>
         </div>
 
-        {/* Live Running WIB Clock */}
-        <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-700/90 px-3.5 py-2 rounded-xl text-xs font-mono self-start sm:self-auto shadow-inner">
-          <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
-          <div>
-            <div className="text-[11px] text-slate-400 font-sans">Waktu Sekarang (WIB):</div>
-            <div className="font-bold text-sm text-emerald-400">
-              {liveWib.dayName}, {liveWib.timeStr} <span className="text-[10px] text-slate-500">WIB</span>
+        {/* Quick Export & Live Running WIB Clock */}
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleExportToday}
+            disabled={exportingToday}
+            className="flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition active:scale-95 shadow-sm disabled:opacity-50"
+            title="Unduh laporan Excel untuk kegiatan hari ini"
+          >
+            {exportingToday ? (
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            )}
+            <span>Ekspor Hari Ini</span>
+          </button>
+
+          <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-700/90 px-3.5 py-2 rounded-xl text-xs font-mono shadow-inner">
+            <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
+            <div>
+              <div className="text-[11px] text-slate-400 font-sans">Waktu Sekarang (WIB):</div>
+              <div className="font-bold text-sm text-emerald-400">
+                {liveWib.dayName}, {liveWib.timeStr} <span className="text-[10px] text-slate-500">WIB</span>
+              </div>
             </div>
           </div>
         </div>

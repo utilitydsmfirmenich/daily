@@ -2,16 +2,18 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api-client";
 import { generateActivitiesExcel } from "../lib/excel-generator";
+import { getCurrentWIB } from "../lib/time-utils";
 import { X, FileSpreadsheet, Download, Loader2, AlertCircle } from "lucide-react";
 
 interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  initialRange?: "today" | "month" | "week" | "all" | "custom";
 }
 
-export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) => {
+export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, initialRange = "today" }) => {
   const { user } = useAuth();
-  const [rangeType, setRangeType] = useState<"month" | "week" | "all" | "custom">("month");
+  const [rangeType, setRangeType] = useState<"today" | "month" | "week" | "all" | "custom">(initialRange);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [layout, setLayout] = useState<"as_original" | "single_table">("as_original");
@@ -33,7 +35,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) =
       const pad = (n: number) => String(n).padStart(2, "0");
       const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-      if (rangeType === "month") {
+      if (rangeType === "today") {
+        const wib = getCurrentWIB();
+        fromDate = wib.isoDate;
+        toDate = wib.isoDate;
+      } else if (rangeType === "month") {
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
         const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         fromDate = fmt(firstDay);
@@ -70,9 +76,14 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) =
         durationFormat
       });
 
-      const fromLabel = fromDate || "awal";
-      const toLabel = toDate || "akhir";
-      const filename = `pencatatan_kegiatan_${user.pid}_${fromLabel}_${toLabel}.xlsx`;
+      let filename: string;
+      if (fromDate && toDate && fromDate === toDate) {
+        filename = `pencatatan_kegiatan_${user.pid}_${fromDate}.xlsx`;
+      } else {
+        const fromLabel = fromDate || "awal";
+        const toLabel = toDate || "akhir";
+        filename = `pencatatan_kegiatan_${user.pid}_${fromLabel}_${toLabel}.xlsx`;
+      }
 
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
@@ -128,8 +139,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) =
             <label className="font-medium text-slate-300">Rentang Tanggal</label>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { id: "month", label: "Bulan Ini" },
+                { id: "today", label: "Hari Ini" },
                 { id: "week", label: "Pekan Ini" },
+                { id: "month", label: "Bulan Ini" },
                 { id: "all", label: "Semua Data" },
                 { id: "custom", label: "Kustom Tanggal" }
               ].map((r) => (
