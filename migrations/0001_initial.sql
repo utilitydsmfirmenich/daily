@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS pids (
 
 INSERT OR IGNORE INTO pids (pid, display_name) VALUES 
   ('AGSB', 'Agus Sobarna (AGSB)'),
-  ('MUKB', 'M. Ulin Nuha (MUKB)'),
-  ('IKJA', 'Iksan Jaelani (IKJA)'),
-  ('AHIK', 'Ahmad Hikmat (AHIK)');
+  ('MUKB', 'Muhammad Dimas F A (MUKB)'),
+  ('IKJA', 'Diki Jaelani (IKJA)'),
+  ('AHIK', 'Ahmad Abdul Malik (AHIK)');
 
 CREATE TABLE IF NOT EXISTS import_batches (
   id            TEXT PRIMARY KEY,

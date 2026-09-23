@@ -193,10 +193,10 @@ pencatatan-harian/
 
 | PID | Nama Lengkap | PIN Default | Peran |
 | :--- | :--- | :--- | :--- |
-| `AGSB` | Agus Budi | `123456` | Operator / User |
-| `MUKB` | Mukhlis B | `123456` | Operator / User |
-| `IKJA` | Iko J | `123456` | Operator / User |
-| `AHIK` | Ahmad I | `123456` | Operator / User |
+| `AGSB` | Agus Sobarna | `123456` | Operator / User |
+| `MUKB` | Muhammad Dimas F A | `123456` | Operator / User |
+| `IKJA` | Diki Jaelani | `123456` | Operator / User |
+| `AHIK` | Ahmad Abdul Malik | `123456` | Operator / User |
 
 *(PIN dapat diubah melalui menu profil pengguna di dalam aplikasi)*.
 

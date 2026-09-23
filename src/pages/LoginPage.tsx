@@ -37,9 +37,9 @@ export const LoginPage: React.FC = () => {
 
   const quickPids = [
     { pid: "AGSB", name: "Agus Sobarna" },
-    { pid: "MUKB", name: "M. Ulin Nuha" },
-    { pid: "IKJA", name: "Iksan Jaelani" },
-    { pid: "AHIK", name: "Ahmad Hikmat" }
+    { pid: "MUKB", name: "Muhammad Dimas F A" },
+    { pid: "IKJA", name: "Diki Jaelani" },
+    { pid: "AHIK", name: "Ahmad Abdul Malik" }
   ];
 
   return (
