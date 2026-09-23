@@ -13,6 +13,7 @@ import {
 import { Activity, ActivityDefaults, DayName } from "../types";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { QuickDurationButtons } from "../components/QuickDurationButtons";
+import { QuickCategoryPills } from "../components/QuickCategoryPills";
 import { generateActivitiesExcel } from "../lib/excel-generator";
 import { 
   Clock, 
@@ -549,39 +550,47 @@ export const RecordPage: React.FC = () => {
             />
           </div>
 
-          {/* Row 4: Kategori (Autocomplete) & Keterangan (Opsional) */}
+          {/* Row 4: Kategori (Autocomplete & Quick Pills) & Keterangan (Opsional) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="relative" ref={categoryContainerRef}>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Kategori Pekerjaan <span className="text-slate-500 font-normal">(opsional)</span>
-              </label>
-              <input
-                type="text"
-                value={kategori}
-                onChange={(e) => handleCategoryInput(e.target.value)}
-                onFocus={() => handleCategoryInput(kategori)}
-                placeholder="Contoh: Briefing, Administratif, Operasional..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
+            <div className="relative space-y-2" ref={categoryContainerRef}>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Kategori Pekerjaan <span className="text-slate-500 font-normal">(opsional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={kategori}
+                  onChange={(e) => handleCategoryInput(e.target.value)}
+                  onFocus={() => handleCategoryInput(kategori)}
+                  placeholder="Pilih cepat di bawah atau ketik manual..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
 
-              {/* Autocomplete Dropdown */}
-              {showCategoryDropdown && filteredCategories.length > 0 && (
-                <div className="absolute left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-h-48 overflow-y-auto z-30 py-1 divide-y divide-slate-700/50">
-                  {filteredCategories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        setKategori(cat);
-                        setShowCategoryDropdown(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 text-xs text-slate-200 hover:bg-slate-700 transition"
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              )}
+                {/* Autocomplete Dropdown */}
+                {showCategoryDropdown && filteredCategories.length > 0 && (
+                  <div className="absolute left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-h-48 overflow-y-auto z-30 py-1 divide-y divide-slate-700/50">
+                    {filteredCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setKategori(cat);
+                          setShowCategoryDropdown(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-xs text-slate-200 hover:bg-slate-700 transition"
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Category Pills (7 Standard Categories) */}
+              <QuickCategoryPills
+                selectedCategory={kategori}
+                onSelectCategory={(cat) => setKategori(cat)}
+              />
             </div>
 
             <div>

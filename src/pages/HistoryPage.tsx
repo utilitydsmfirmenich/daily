@@ -15,6 +15,7 @@ import { generateActivitiesExcel } from "../lib/excel-generator";
 import { ExportDialog } from "../components/ExportDialog";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { QuickDurationButtons } from "../components/QuickDurationButtons";
+import { QuickCategoryPills } from "../components/QuickCategoryPills";
 import { 
   History as HistoryIcon, 
   Search, 
@@ -743,25 +744,34 @@ export const HistoryPage: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Kategori</label>
-                  <input
-                    type="text"
-                    value={editForm.kategori}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev!, kategori: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
-                  />
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">Kategori</label>
+                    <input
+                      type="text"
+                      value={editForm.kategori}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev!, kategori: e.target.value }))}
+                      placeholder="Pilih cepat di bawah atau ketik..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">Keterangan</label>
+                    <input
+                      type="text"
+                      value={editForm.keterangan}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev!, keterangan: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Keterangan</label>
-                  <input
-                    type="text"
-                    value={editForm.keterangan}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev!, keterangan: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
-                  />
-                </div>
+
+                {/* Quick Category Pills in Edit Modal */}
+                <QuickCategoryPills
+                  selectedCategory={editForm.kategori}
+                  onSelectCategory={(cat) => setEditForm((prev) => ({ ...prev!, kategori: cat }))}
+                />
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer pt-2">
