@@ -40,3 +40,12 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Android build outputs
+.gradle/
+build/
+android/app/build/
+android/.gradle/
+*.apk
+*.aab
+

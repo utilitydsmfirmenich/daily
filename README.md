@@ -93,6 +93,68 @@ Hasil build produksi siap deploy akan tersimpan di dalam folder `dist/`.
 
 ---
 
+## 🌐 Panduan Deploy Gratis ke Cloudflare Pages & D1 Database
+
+Layanan Cloudflare Pages dan Cloudflare D1 sepenuhnya **GRATIS** dan terhubung otomatis dengan repositori GitHub Anda.
+
+### Langkah 1: Buat Database Cloudflare D1
+1. Buka [Cloudflare Dashboard](https://dash.cloudflare.com) dan login (atau daftar gratis).
+2. Di menu navigasi samping, klik **Workers & Pages** > **D1 SQL Database**.
+3. Klik tombol **Create database** > pilih **Dashboard**.
+4. Beri nama database: `log-harian-db` lalu klik **Create**.
+
+### Langkah 2: Hubungkan Repositori GitHub ke Cloudflare Pages
+1. Di menu navigasi samping Cloudflare, klik **Workers & Pages** > **Create application** > tab **Pages**.
+2. Pilih opsi **Connect to Git** > pilih akun GitHub Anda dan pilih repositori `utilitydsmfirmenich/daily`.
+3. Klik **Begin setup**.
+4. Konfigurasikan pengaturan build sebagai berikut:
+   - **Project name:** `utility-daily` (URL web akan menjadi `https://utility-daily.pages.dev`).
+   - **Production branch:** `main`
+   - **Framework preset:** `Vite`
+   - **Build command:** `npm run build`
+   - **Build output directory:** `dist`
+5. Di bagian **Environment variables (advanced)**, tambahkan:
+   - Variable name: `NODE_VERSION`, Value: `18`
+6. Klik **Save and Deploy**.
+
+### Langkah 3: Hubungkan (Binding) Database D1 ke Cloudflare Pages
+1. Setelah deployment pertama selesai, masuk ke halaman proyek Pages Anda (`utility-daily`).
+2. Klik tab **Settings** > pilih **Functions** di bilah kiri.
+3. Gulir ke bawah ke bagian **D1 database bindings** > klik **Add binding**:
+   - **Variable name:** `DB` *(Wajib menggunakan huruf kapital DB)*
+   - **D1 database:** Pilih `log-harian-db` yang telah Anda buat di Langkah 1.
+4. Klik **Save**.
+5. Buka tab **Deployments**, klik titik tiga (⋯) pada deployment terakhir > pilih **Retry deployment** (agar binding database langsung aktif).
+6. Website kini sudah aktif dan live 100% di `https://utility-daily.pages.dev`!
+
+---
+
+## 📱 Panduan Menggunakan Sebagai Aplikasi Android
+
+Tersedia dua metode mudah untuk memasang aplikasi di perangkat Android:
+
+### Metode A: Pasang Langsung sebagai PWA (Instan & Tanpa File APK)
+1. Buka tautan `https://utility-daily.pages.dev` di browser **Google Chrome** pada HP Android Anda.
+2. Ketuk ikon titik tiga (⋮) di pojok kanan atas browser atau ketuk banner pop-up *"Tambahkan Log PID ke Layar Utama"* yang muncul di bagian bawah layar.
+3. Pilih **Instal Aplikasi** (*Install app*) atau **Tambahkan ke Layar Utama** (*Add to Home screen*).
+4. Ikon aplikasi **Log PID** akan langsung terpasang di menu aplikasi Android Anda:
+   - Berjalan layar penuh (*standalone*) tanpa bilah alamat URL peramban layaknya aplikasi Play Store.
+   - Ikon aplikasi beresolusi tinggi dan mendukung splash screen gelap elegan.
+   - Selalu terbarui otomatis (*auto-update*) setiap kali ada commit baru di repositori GitHub.
+
+### Metode B: Unduh File Installer APK (.apk Standalone)
+File `.apk` Android dapat dibuat secara otomatis di cloud menggunakan GitHub Actions tanpa memerlukan instalasi Android Studio di laptop Anda:
+1. Buka halaman repositori `utilitydsmfirmenich/daily` di GitHub.
+2. Klik tab **Actions** di bagian atas repositori.
+3. Di panel sebelah kiri, klik workflow **"Build Android APK"**.
+4. Klik tombol **Run workflow** (sebelah kanan) > pilih Branch: `main` > klik tombol hijau **Run workflow**.
+5. Tunggu sekitar 2-3 menit hingga proses build selesai bertanda centang hijau.
+6. Klik hasil build tersebut, lalu gulir ke bawah ke bagian **Artifacts**.
+7. Klik file **`Log-Harian-PID-APK`** untuk mengunduh arsip zip yang berisi file `Log-Harian-PID.apk`.
+8. Kirim file `.apk` tersebut ke ponsel Android (melalui WhatsApp, Google Drive, atau kabel USB) lalu ketuk file untuk memasang (*install*) aplikasi.
+
+---
+
 ## 📁 Struktur Direktori
 
 ```text

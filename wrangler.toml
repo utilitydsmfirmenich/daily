@@ -1,4 +1,4 @@
-name = "log-harian-pid"
+name = "utility-daily"
 compatibility_date = "2024-09-19"
 pages_build_output_dir = "dist"
 
