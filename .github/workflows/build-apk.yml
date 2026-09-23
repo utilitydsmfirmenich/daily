@@ -34,21 +34,21 @@ jobs:
         working-directory: ./android
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          if ! gradle assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log; then
-            echo "## ❌ Gradle Build Error" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 100 build.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
+          gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Prepare APK Artifact
         run: |
           mkdir -p build-output
+          echo "### Search APK Result:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          find . -name "*.apk" | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           APK_FILE=$(find . -name "*.apk" -type f | head -n 1)
           if [ -z "$APK_FILE" ]; then
-            echo "No APK file found! Listing output directories:"
-            find . -maxdepth 6 -name "outputs" -o -name "*.apk"
+            echo "❌ No APK found! Directory contents:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            find android -maxdepth 6 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
           echo "Found APK at: $APK_FILE"
