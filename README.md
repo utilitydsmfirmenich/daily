@@ -143,15 +143,14 @@ Tersedia dua metode mudah untuk memasang aplikasi di perangkat Android:
    - Selalu terbarui otomatis (*auto-update*) setiap kali ada commit baru di repositori GitHub.
 
 ### Metode B: Unduh File Installer APK (.apk Standalone)
-File `.apk` Android dapat dibuat secara otomatis di cloud menggunakan GitHub Actions tanpa memerlukan instalasi Android Studio di laptop Anda:
-1. Buka halaman repositori `utilitydsmfirmenich/daily` di GitHub.
-2. Klik tab **Actions** di bagian atas repositori.
-3. Di panel sebelah kiri, klik workflow **"Build Android APK"**.
-4. Klik tombol **Run workflow** (sebelah kanan) > pilih Branch: `main` > klik tombol hijau **Run workflow**.
-5. Tunggu sekitar 2-3 menit hingga proses build selesai bertanda centang hijau.
-6. Klik hasil build tersebut, lalu gulir ke bawah ke bagian **Artifacts**.
-7. Klik file **`Log-Harian-PID-APK`** untuk mengunduh arsip zip yang berisi file `Log-Harian-PID.apk`.
-8. Kirim file `.apk` tersebut ke ponsel Android (melalui WhatsApp, Google Drive, atau kabel USB) lalu ketuk file untuk memasang (*install*) aplikasi.
+Aplikasi Android dalam bentuk file installer `.apk` sudah berhasil dikompilasi secara resmi:
+
+📥 **[Unduh Log-Harian-PID.apk (v1.0.7)](https://github.com/utilitydsmfirmenich/daily/releases/download/v1.0.7/Log-Harian-PID.apk)** *(Ukuran: ~5.6 MB)*
+
+Atau melalui halaman rilis GitHub:
+1. Buka halaman **[Releases utilitydsmfirmenich/daily](https://github.com/utilitydsmfirmenich/daily/releases)** di GitHub.
+2. Unduh file **`Log-Harian-PID.apk`** pada rilis terbaru.
+3. Kirim file `.apk` ke ponsel Android (melalui WhatsApp, Google Drive, atau kabel USB) lalu ketuk file untuk memasang (*install*) aplikasi.
 
 ---
 
