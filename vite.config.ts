@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
       manifest: {
-        name: "Log Harian PID",
-        short_name: "Log PID",
-        description: "Aplikasi Pencatatan Kegiatan Harian Berbasis PID",
+        name: "Log Harian Utility",
+        short_name: "Log Utility",
+        description: "Aplikasi Pencatatan Kegiatan Harian Utility DSM-Firmenich",
         theme_color: "#1e293b",
         background_color: "#0f172a",
         display: "standalone",

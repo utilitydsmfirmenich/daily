@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { ClipboardList, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 
 export const LoginPage: React.FC = () => {
   const [pid, setPid] = useState("");
@@ -46,15 +46,17 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 px-4 selection:bg-blue-600 selection:text-white">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30 border border-blue-400/20">
-            <ClipboardList className="w-8 h-8 text-white" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Log Harian Utility"
+            className="w-16 h-16 rounded-2xl object-contain drop-shadow-xl"
+          />
         </div>
         <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-white">
-          Log Harian PID
+          Log Harian Utility
         </h2>
         <p className="mt-1 text-center text-xs text-slate-400">
-          Aplikasi pencatatan kegiatan harian dan shift operasional
+          Aplikasi pencatatan kegiatan harian dan shift operasional utility
         </p>
       </div>
 

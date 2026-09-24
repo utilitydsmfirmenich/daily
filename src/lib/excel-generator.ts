@@ -66,8 +66,8 @@ export async function generateActivitiesExcel(
   options: ExportOptions
 ): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Log Harian PID";
-  workbook.lastModifiedBy = "Log Harian PID";
+  workbook.creator = "Log Harian Utility";
+  workbook.lastModifiedBy = "Log Harian Utility";
   workbook.created = new Date();
   workbook.modified = new Date();
 

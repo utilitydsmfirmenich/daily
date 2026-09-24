@@ -1,6 +1,6 @@
-# Log Harian PID
+# Log Harian Utility
 
-Aplikasi **Progressive Web App (PWA)** untuk pencatatan kegiatan kerja harian berbasis **PID** (*Personal ID*). Dirancang khusus untuk efisiensi input kegiatan lapangan di smartphone Android, tablet, laptop, dan PC, dengan dukungan impor dan ekspor file Excel yang 100% presisi mengikuti format acuan `pencatatan kegiatan.xlsx`.
+Aplikasi **Progressive Web App (PWA)** dan **Android APK** untuk pencatatan kegiatan kerja harian utility DSM-Firmenich berbasis **PID** (*Personal ID*). Dirancang khusus untuk efisiensi input kegiatan lapangan di smartphone Android, tablet, laptop, dan PC, dengan dukungan impor dan ekspor file Excel yang 100% presisi mengikuti format acuan `pencatatan kegiatan.xlsx`.
 
 ---
 
