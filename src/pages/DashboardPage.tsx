@@ -12,6 +12,7 @@ import {
   getCurrentWIB 
 } from "../lib/time-utils";
 import { generateActivitiesExcel } from "../lib/excel-generator";
+import { CategoryDonutChart } from "../components/CategoryDonutChart";
 import { 
   LayoutDashboard, 
   Clock, 
@@ -27,7 +28,11 @@ import {
   Users, 
   Loader2, 
   AlertCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Sun,
+  Moon,
+  SunMoon,
+  Timer
 } from "lucide-react";
 
 type PeriodPreset = "today" | "7days" | "month" | "last_month" | "custom";
@@ -489,23 +494,13 @@ export const DashboardPage: React.FC = () => {
                   Alokasi jam kerja berdasarkan 7 kategori standar utility.
                 </p>
 
-                {/* Stacked Proportional Bar Preview */}
+                {/* Interactive SVG Donut Chart */}
                 {stats && stats.categories && stats.categories.length > 0 && stats.kpi.total_duration_min > 0 && (
-                  <div className="w-full h-3 rounded-full bg-slate-900 overflow-hidden flex mb-5 border border-slate-700/80 shadow-inner">
-                    {stats.categories.map((cat, idx) => {
-                      const key = cat.kategori.toLowerCase().trim();
-                      const color = CATEGORY_COLORS[key] || CATEGORY_COLORS.default;
-                      const pct = (cat.duration_min / stats.kpi.total_duration_min) * 100;
-                      if (pct <= 0) return null;
-                      return (
-                        <div
-                          key={idx}
-                          style={{ width: `${pct}%` }}
-                          className={`${color.bar} h-full transition-all duration-500`}
-                          title={`${cat.kategori}: ${pct.toFixed(1)}% (${formatDurationHuman(cat.duration_min)})`}
-                        />
-                      );
-                    })}
+                  <div className="mb-5 p-2 bg-slate-900/60 rounded-xl border border-slate-700/50">
+                    <CategoryDonutChart
+                      categories={stats.categories}
+                      totalDurationMin={stats.kpi.total_duration_min}
+                    />
                   </div>
                 )}
 
@@ -655,6 +650,214 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* SECTION 2.5: ANALISIS SHIFT & OVERTIME (JADWAL DSM-FIRMENICH UTILITY) */}
+          {(() => {
+            const shiftStats = stats?.shift_stats || {
+              shift_1: { regular_min: 0, overtime_min: 0, total_min: 0, activity_count: 0 },
+              shift_2: { regular_min: 0, overtime_min: 0, total_min: 0, activity_count: 0 },
+              total_regular_min: 0,
+              total_overtime_min: 0,
+              total_min: 0
+            };
+            const s1 = shiftStats.shift_1;
+            const s2 = shiftStats.shift_2;
+            const totalWorkMin = stats?.kpi?.total_duration_min || shiftStats.total_min || 0;
+            const totalOtMin = shiftStats.total_overtime_min;
+            const otPctOfTotal = totalWorkMin > 0 ? ((totalOtMin / totalWorkMin) * 100).toFixed(1) : "0";
+
+            const s1RegPct = s1.total_min > 0 ? (s1.regular_min / s1.total_min) * 100 : 0;
+            const s1OtPct = s1.total_min > 0 ? (s1.overtime_min / s1.total_min) * 100 : 0;
+
+            const s2RegPct = s2.total_min > 0 ? (s2.regular_min / s2.total_min) * 100 : 0;
+            const s2OtPct = s2.total_min > 0 ? (s2.overtime_min / s2.total_min) * 100 : 0;
+
+            return (
+              <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-sm mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <SunMoon className="w-4 h-4 text-amber-400" />
+                      <h2 className="text-sm font-bold text-white">Analisis Shift Kerja & Jam Lembur (Overtime)</h2>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Perhitungan menit presisi berdasarkan jadwal Utility: Shift 1 (07:30 - 16:30, OT 16:30 - 20:30) dan Shift 2 (19:30 - 05:30, OT 05:30 - 08:30).
+                    </p>
+                  </div>
+
+                  {/* Overtime KPI Pill */}
+                  <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 self-start sm:self-auto shadow-sm">
+                    <Timer className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <div>
+                      <span className="text-[10px] text-amber-400 font-bold block uppercase tracking-wider leading-none">
+                        Total Jam Lembur (OT)
+                      </span>
+                      <div className="flex items-baseline gap-1.5 mt-0.5">
+                        <strong className="font-mono text-sm font-black text-amber-300">
+                          {formatDurationHuman(totalOtMin)}
+                        </strong>
+                        <span className="text-[10px] text-amber-400/90 font-medium">
+                          ({otPctOfTotal}% dari total jam kerja)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Shift 1 Card */}
+                  <div className="bg-slate-900/80 border border-slate-700/70 rounded-xl p-4 flex flex-col justify-between hover:border-slate-600 transition">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                            <Sun className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-bold text-white">Shift 1 (Pagi / Day Shift)</h3>
+                            <span className="text-[10px] text-slate-400">Reguler: 07:30 - 16:30</span>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 text-[10px] font-semibold border border-sky-500/20">
+                          {s1.activity_count} tugas
+                        </span>
+                      </div>
+
+                      {/* Total Shift 1 Duration */}
+                      <div className="flex items-baseline justify-between mb-2">
+                        <span className="text-xs text-slate-400 font-medium">Total Akumulasi Shift 1:</span>
+                        <span className="text-lg font-black font-mono text-white">
+                          {formatDurationHuman(s1.total_min)}
+                        </span>
+                      </div>
+
+                      {/* Multi-segment Progress Bar */}
+                      <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden flex border border-slate-700/80 mb-3 shadow-inner">
+                        {s1.regular_min > 0 && (
+                          <div
+                            style={{ width: `${s1RegPct}%` }}
+                            className="bg-sky-500 h-full transition-all duration-500"
+                            title={`Reguler: ${formatDurationHuman(s1.regular_min)} (${s1RegPct.toFixed(0)}%)`}
+                          />
+                        )}
+                        {s1.overtime_min > 0 && (
+                          <div
+                            style={{ width: `${s1OtPct}%` }}
+                            className="bg-amber-500 h-full transition-all duration-500"
+                            title={`Overtime (16:30-20:30): ${formatDurationHuman(s1.overtime_min)} (${s1OtPct.toFixed(0)}%)`}
+                          />
+                        )}
+                      </div>
+
+                      {/* Breakdown Details */}
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                        <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                          <div className="flex items-center gap-1.5 text-slate-400 text-[11px] mb-0.5">
+                            <span className="w-2 h-2 rounded-full bg-sky-500" />
+                            <span>Jam Reguler</span>
+                          </div>
+                          <span className="font-mono font-bold text-white text-xs block">
+                            {formatDurationHuman(s1.regular_min)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {s1RegPct.toFixed(0)}% porsi shift
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-slate-800/60 border border-amber-500/20">
+                          <div className="flex items-center gap-1.5 text-amber-400 text-[11px] mb-0.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <span>Lembur (16:30-20:30)</span>
+                          </div>
+                          <span className="font-mono font-bold text-amber-300 text-xs block">
+                            {formatDurationHuman(s1.overtime_min)}
+                          </span>
+                          <span className="text-[10px] text-amber-400/70 font-mono">
+                            {s1OtPct.toFixed(0)}% porsi shift
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shift 2 Card */}
+                  <div className="bg-slate-900/80 border border-slate-700/70 rounded-xl p-4 flex flex-col justify-between hover:border-slate-600 transition">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                            <Moon className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-bold text-white">Shift 2 (Malam / Night Shift)</h3>
+                            <span className="text-[10px] text-slate-400">Reguler: 19:30 - 05:30</span>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 text-[10px] font-semibold border border-indigo-500/20">
+                          {s2.activity_count} tugas
+                        </span>
+                      </div>
+
+                      {/* Total Shift 2 Duration */}
+                      <div className="flex items-baseline justify-between mb-2">
+                        <span className="text-xs text-slate-400 font-medium">Total Akumulasi Shift 2:</span>
+                        <span className="text-lg font-black font-mono text-white">
+                          {formatDurationHuman(s2.total_min)}
+                        </span>
+                      </div>
+
+                      {/* Multi-segment Progress Bar */}
+                      <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden flex border border-slate-700/80 mb-3 shadow-inner">
+                        {s2.regular_min > 0 && (
+                          <div
+                            style={{ width: `${s2RegPct}%` }}
+                            className="bg-indigo-500 h-full transition-all duration-500"
+                            title={`Reguler: ${formatDurationHuman(s2.regular_min)} (${s2RegPct.toFixed(0)}%)`}
+                          />
+                        )}
+                        {s2.overtime_min > 0 && (
+                          <div
+                            style={{ width: `${s2OtPct}%` }}
+                            className="bg-amber-500 h-full transition-all duration-500"
+                            title={`Overtime (05:30-08:30): ${formatDurationHuman(s2.overtime_min)} (${s2OtPct.toFixed(0)}%)`}
+                          />
+                        )}
+                      </div>
+
+                      {/* Breakdown Details */}
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                        <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                          <div className="flex items-center gap-1.5 text-slate-400 text-[11px] mb-0.5">
+                            <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                            <span>Jam Reguler</span>
+                          </div>
+                          <span className="font-mono font-bold text-white text-xs block">
+                            {formatDurationHuman(s2.regular_min)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {s2RegPct.toFixed(0)}% porsi shift
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-slate-800/60 border border-amber-500/20">
+                          <div className="flex items-center gap-1.5 text-amber-400 text-[11px] mb-0.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <span>Lembur (05:30-08:30)</span>
+                          </div>
+                          <span className="font-mono font-bold text-amber-300 text-xs block">
+                            {formatDurationHuman(s2.overtime_min)}
+                          </span>
+                          <span className="text-[10px] text-amber-400/70 font-mono">
+                            {s2OtPct.toFixed(0)}% porsi shift
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* SECTION 3: TOP ACTIVITIES (LONGEST & MOST FREQUENT) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

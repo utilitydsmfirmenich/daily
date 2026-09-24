@@ -126,6 +126,21 @@ export interface OperatorStatItem {
   highlight_count: number;
 }
 
+export interface ShiftDetailStats {
+  regular_min: number;
+  overtime_min: number;
+  total_min: number;
+  activity_count: number;
+}
+
+export interface ShiftBreakdownStats {
+  shift_1: ShiftDetailStats;
+  shift_2: ShiftDetailStats;
+  total_regular_min: number;
+  total_overtime_min: number;
+  total_min: number;
+}
+
 export interface DashboardStatsResponse {
   kpi: DashboardKPI;
   categories: CategoryDistributionItem[];
@@ -134,4 +149,5 @@ export interface DashboardStatsResponse {
   top_frequent: TopActivityItem[];
   operator_stats: OperatorStatItem[];
   highlights: Activity[];
+  shift_stats?: ShiftBreakdownStats;
 }

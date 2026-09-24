@@ -259,3 +259,81 @@ export function addMinutesToTime(timeStr: string, minutes: number): string {
   const newM = normalizedTotal % 60;
   return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
 }
+
+/**
+ * Shift Schedule DSM-Firmenich Utility:
+ * - Shift 1 (Pagi): 07:30 - 16:30 (Reguler), 16:30 - 20:30 (Overtime)
+ * - Shift 2 (Malam): 19:30 - 05:30 (Reguler), 05:30 - 08:30 (Overtime)
+ */
+export interface ActivityShiftBreakdown {
+  shift: "SHIFT_1" | "SHIFT_2" | "OTHER";
+  regular_min: number;
+  overtime_min: number;
+  total_min: number;
+}
+
+export function calculateActivityShiftBreakdown(startTime: string, finishTime: string): ActivityShiftBreakdown {
+  const normStart = normalizeTimeString(startTime);
+  const normFinish = normalizeTimeString(finishTime);
+  if (!normStart || !normFinish) {
+    return { shift: "OTHER", regular_min: 0, overtime_min: 0, total_min: 0 };
+  }
+
+  const [sh, sm] = normStart.split(":").map(Number);
+  const [fh, fm] = normFinish.split(":").map(Number);
+
+  const startMin = (sh === 24 ? 0 : sh) * 60 + sm;
+  const finishMin = (fh === 24 ? 24 : fh) * 60 + fm;
+
+  // Split into single-day interval(s)
+  const intervals: Array<[number, number]> = [];
+  if (finishMin >= startMin) {
+    intervals.push([startMin, finishMin]);
+  } else {
+    // Crosses midnight
+    intervals.push([startMin, 1440]);
+    intervals.push([0, finishMin]);
+  }
+
+  const totalMin = intervals.reduce((acc, [a, b]) => acc + (b - a), 0);
+
+  // Helper to calculate minutes overlap with [targetA, targetB]
+  const calcOverlap = (tA: number, tB: number): number => {
+    let overlap = 0;
+    for (const [a, b] of intervals) {
+      overlap += Math.max(0, Math.min(b, tB) - Math.max(a, tA));
+    }
+    return overlap;
+  };
+
+  // Determine primary shift based on start time
+  // Shift 1 window: 07:30 (450) <= start < 19:30 (1170)
+  // Shift 2 window: start >= 19:30 (1170) OR start < 07:30 (450)
+  const isShift1 = startMin >= 450 && startMin < 1170;
+
+  if (isShift1) {
+    // Shift 1: Reguler = 07:30 - 16:30 [450, 990], OT = 16:30 - 20:30 [990, 1230]
+    const reg = calcOverlap(450, 990);
+    const ot = calcOverlap(990, 1230);
+    const remainder = Math.max(0, totalMin - (reg + ot));
+    return {
+      shift: "SHIFT_1",
+      regular_min: reg + (startMin < 990 ? remainder : 0),
+      overtime_min: ot + (startMin >= 990 ? remainder : 0),
+      total_min: totalMin
+    };
+  } else {
+    // Shift 2: Reguler = 19:30 - 24:00 [1170, 1440] + 00:00 - 05:30 [0, 330]
+    // OT = 05:30 - 08:30 [330, 510]
+    const reg = calcOverlap(1170, 1440) + calcOverlap(0, 330);
+    const ot = calcOverlap(330, 510);
+    const remainder = Math.max(0, totalMin - (reg + ot));
+    return {
+      shift: "SHIFT_2",
+      regular_min: reg + (startMin >= 1170 || startMin < 330 ? remainder : 0),
+      overtime_min: ot + (startMin >= 330 && startMin < 510 ? remainder : 0),
+      total_min: totalMin
+    };
+  }
+}
+

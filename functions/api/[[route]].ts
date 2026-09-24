@@ -726,6 +726,86 @@ app.get("/api/dashboard/stats", async (c) => {
     .bind(...baseParams)
     .all<any>();
 
+  // 8. Shift & Overtime Breakdown (DSM-Firmenich Utility)
+  // Shift 1: 07:30 - 16:30 (Reguler), 16:30 - 20:30 (Overtime)
+  // Shift 2: 19:30 - 05:30 (Reguler), 05:30 - 08:30 (Overtime)
+  const shiftActivitiesRes = await db
+    .prepare(`SELECT start_time, finish_time, duration_min FROM activities WHERE ${baseWhere}`)
+    .bind(...baseParams)
+    .all<any>();
+
+  let s1Reg = 0;
+  let s1Ot = 0;
+  let s1Count = 0;
+  let s2Reg = 0;
+  let s2Ot = 0;
+  let s2Count = 0;
+
+  for (const act of shiftActivitiesRes.results || []) {
+    const st = String(act.start_time || "").trim();
+    const ft = String(act.finish_time || "").trim();
+    if (!st || !ft) continue;
+
+    const [sh, sm] = st.split(":").map(Number);
+    const [fh, fm] = ft.split(":").map(Number);
+    if (isNaN(sh) || isNaN(sm) || isNaN(fh) || isNaN(fm)) continue;
+
+    const startMin = (sh === 24 ? 0 : sh) * 60 + sm;
+    const finishMin = (fh === 24 ? 24 : fh) * 60 + fm;
+
+    const intervals: Array<[number, number]> = [];
+    if (finishMin >= startMin) {
+      intervals.push([startMin, finishMin]);
+    } else {
+      intervals.push([startMin, 1440]);
+      intervals.push([0, finishMin]);
+    }
+    const tot = intervals.reduce((acc, [a, b]) => acc + (b - a), 0);
+
+    const calcOv = (tA: number, tB: number) => {
+      let ov = 0;
+      for (const [a, b] of intervals) {
+        ov += Math.max(0, Math.min(b, tB) - Math.max(a, tA));
+      }
+      return ov;
+    };
+
+    const isShift1 = startMin >= 450 && startMin < 1170;
+    if (isShift1) {
+      s1Count++;
+      const reg = calcOv(450, 990);
+      const ot = calcOv(990, 1230);
+      const rem = Math.max(0, tot - (reg + ot));
+      s1Reg += reg + (startMin < 990 ? rem : 0);
+      s1Ot += ot + (startMin >= 990 ? rem : 0);
+    } else {
+      s2Count++;
+      const reg = calcOv(1170, 1440) + calcOv(0, 330);
+      const ot = calcOv(330, 510);
+      const rem = Math.max(0, tot - (reg + ot));
+      s2Reg += reg + (startMin >= 1170 || startMin < 330 ? rem : 0);
+      s2Ot += ot + (startMin >= 330 && startMin < 510 ? rem : 0);
+    }
+  }
+
+  const shiftStats = {
+    shift_1: {
+      regular_min: s1Reg,
+      overtime_min: s1Ot,
+      total_min: s1Reg + s1Ot,
+      activity_count: s1Count
+    },
+    shift_2: {
+      regular_min: s2Reg,
+      overtime_min: s2Ot,
+      total_min: s2Reg + s2Ot,
+      activity_count: s2Count
+    },
+    total_regular_min: s1Reg + s2Reg,
+    total_overtime_min: s1Ot + s2Ot,
+    total_min: s1Reg + s1Ot + s2Reg + s2Ot
+  };
+
   return c.json({
     kpi: {
       total_activities: kpiRes?.total_activities || 0,
@@ -738,7 +818,8 @@ app.get("/api/dashboard/stats", async (c) => {
     top_longest: topLongestRes.results || [],
     top_frequent: topFrequentRes.results || [],
     operator_stats: operatorRes.results || [],
-    highlights: highlightsRes.results || []
+    highlights: highlightsRes.results || [],
+    shift_stats: shiftStats
   });
 });
 
