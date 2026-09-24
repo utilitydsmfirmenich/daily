@@ -320,7 +320,7 @@ app.get("/api/activities/defaults", async (c) => {
 
 // GET /api/activities
 app.get("/api/activities", async (c) => {
-  const pid = c.get("pid");
+  const authPid = c.get("pid");
   const db = c.env.DB;
   const url = new URL(c.req.url);
 
@@ -329,9 +329,20 @@ app.get("/api/activities", async (c) => {
   const kategori = url.searchParams.get("kategori");
   const q = url.searchParams.get("q");
   const before = url.searchParams.get("before");
+  const targetPid = url.searchParams.get("pid");
 
-  let query = "SELECT * FROM activities WHERE pid = ? AND deleted_at IS NULL";
-  const params: any[] = [pid];
+  let query = "SELECT * FROM activities WHERE deleted_at IS NULL";
+  const params: any[] = [];
+
+  if (targetPid && targetPid.toUpperCase() === "ALL") {
+    // all operators
+  } else if (targetPid) {
+    query += " AND pid = ?";
+    params.push(targetPid.toUpperCase());
+  } else {
+    query += " AND pid = ?";
+    params.push(authPid);
+  }
 
   if (from) {
     query += " AND tanggal >= ?";
@@ -527,7 +538,7 @@ app.get("/api/categories", async (c) => {
 
 // GET /api/export
 app.get("/api/export", async (c) => {
-  const pid = c.get("pid");
+  const authPid = c.get("pid");
   const db = c.env.DB;
   const url = new URL(c.req.url);
 
@@ -535,9 +546,20 @@ app.get("/api/export", async (c) => {
   const to = url.searchParams.get("to");
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "500", 10), 1000);
   const afterId = parseInt(url.searchParams.get("after") || "0", 10);
+  const targetPid = url.searchParams.get("pid");
 
-  let query = "SELECT * FROM activities WHERE pid = ? AND deleted_at IS NULL";
-  const params: any[] = [pid];
+  let query = "SELECT * FROM activities WHERE deleted_at IS NULL";
+  const params: any[] = [];
+
+  if (targetPid && targetPid.toUpperCase() === "ALL") {
+    // all operators
+  } else if (targetPid) {
+    query += " AND pid = ?";
+    params.push(targetPid.toUpperCase());
+  } else {
+    query += " AND pid = ?";
+    params.push(authPid);
+  }
 
   if (from) {
     query += " AND tanggal >= ?";
@@ -561,6 +583,163 @@ app.get("/api/export", async (c) => {
   if (hasMore) rows.pop();
 
   return c.json({ activities: rows, has_more: hasMore });
+});
+
+// GET /api/dashboard/stats
+app.get("/api/dashboard/stats", async (c) => {
+  const authPid = c.get("pid");
+  const db = c.env.DB;
+  const url = new URL(c.req.url);
+
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const targetPid = url.searchParams.get("pid");
+
+  let baseWhere = "deleted_at IS NULL";
+  const baseParams: any[] = [];
+
+  if (targetPid && targetPid.toUpperCase() === "ALL") {
+    // all operators
+  } else if (targetPid) {
+    baseWhere += " AND pid = ?";
+    baseParams.push(targetPid.toUpperCase());
+  } else {
+    baseWhere += " AND pid = ?";
+    baseParams.push(authPid);
+  }
+
+  if (from) {
+    baseWhere += " AND tanggal >= ?";
+    baseParams.push(from);
+  }
+  if (to) {
+    baseWhere += " AND tanggal <= ?";
+    baseParams.push(to);
+  }
+
+  // 1. KPI Summary
+  const kpiRes = await db
+    .prepare(
+      `SELECT 
+        COUNT(*) as total_activities, 
+        COALESCE(SUM(duration_min), 0) as total_duration_min, 
+        COALESCE(SUM(CASE WHEN highlight = 1 THEN 1 ELSE 0 END), 0) as highlight_count,
+        COUNT(DISTINCT tanggal) as unique_days
+      FROM activities WHERE ${baseWhere}`
+    )
+    .bind(...baseParams)
+    .first<any>();
+
+  // 2. Category Distribution
+  const catRes = await db
+    .prepare(
+      `SELECT 
+        COALESCE(NULLIF(trim(kategori), ''), 'Tanpa Kategori') as kategori, 
+        COUNT(*) as count, 
+        COALESCE(SUM(duration_min), 0) as duration_min 
+      FROM activities 
+      WHERE ${baseWhere} 
+      GROUP BY COALESCE(NULLIF(trim(kategori), ''), 'Tanpa Kategori') 
+      ORDER BY duration_min DESC`
+    )
+    .bind(...baseParams)
+    .all<any>();
+
+  // 3. Daily Trend
+  const dailyRes = await db
+    .prepare(
+      `SELECT 
+        tanggal, 
+        hari, 
+        COALESCE(SUM(duration_min), 0) as duration_min, 
+        COUNT(*) as count, 
+        COALESCE(SUM(CASE WHEN highlight = 1 THEN 1 ELSE 0 END), 0) as highlight_count 
+      FROM activities 
+      WHERE ${baseWhere} 
+      GROUP BY tanggal 
+      ORDER BY tanggal ASC`
+    )
+    .bind(...baseParams)
+    .all<any>();
+
+  // 4. Top 5 Longest Activities
+  const topLongestRes = await db
+    .prepare(
+      `SELECT 
+        kegiatan, 
+        kategori, 
+        COALESCE(SUM(duration_min), 0) as total_duration_min, 
+        COUNT(*) as count 
+      FROM activities 
+      WHERE ${baseWhere} 
+      GROUP BY lower(trim(kegiatan)) 
+      ORDER BY total_duration_min DESC 
+      LIMIT 5`
+    )
+    .bind(...baseParams)
+    .all<any>();
+
+  // 5. Top 5 Most Frequent Activities
+  const topFrequentRes = await db
+    .prepare(
+      `SELECT 
+        kegiatan, 
+        kategori, 
+        COUNT(*) as count, 
+        COALESCE(SUM(duration_min), 0) as total_duration_min 
+      FROM activities 
+      WHERE ${baseWhere} 
+      GROUP BY lower(trim(kegiatan)) 
+      ORDER BY count DESC, total_duration_min DESC 
+      LIMIT 5`
+    )
+    .bind(...baseParams)
+    .all<any>();
+
+  // 6. Operator Stats
+  const operatorRes = await db
+    .prepare(
+      `SELECT 
+        a.pid, 
+        COALESCE(p.display_name, a.pid) as display_name,
+        COUNT(*) as total_activities, 
+        COALESCE(SUM(a.duration_min), 0) as total_duration_min,
+        COALESCE(SUM(CASE WHEN a.highlight = 1 THEN 1 ELSE 0 END), 0) as highlight_count
+      FROM activities a
+      LEFT JOIN pids p ON a.pid = p.pid
+      WHERE ${baseWhere}
+      GROUP BY a.pid
+      ORDER BY total_duration_min DESC`
+    )
+    .bind(...baseParams)
+    .all<any>();
+
+  // 7. Recent Highlights in range
+  const highlightsRes = await db
+    .prepare(
+      `SELECT id, pid, tanggal, hari, start_time, finish_time, duration_min, kegiatan, kategori, keterangan
+      FROM activities
+      WHERE ${baseWhere} AND highlight = 1
+      ORDER BY tanggal DESC, id DESC
+      LIMIT 10`
+    )
+    .bind(...baseParams)
+    .all<any>();
+
+  return c.json({
+    kpi: {
+      total_activities: kpiRes?.total_activities || 0,
+      total_duration_min: kpiRes?.total_duration_min || 0,
+      highlight_count: kpiRes?.highlight_count || 0,
+      unique_days: kpiRes?.unique_days || 0
+    },
+    categories: catRes.results || [],
+    daily_trends: dailyRes.results || [],
+    top_longest: topLongestRes.results || [],
+    top_frequent: topFrequentRes.results || [],
+    operator_stats: operatorRes.results || [],
+    highlights: highlightsRes.results || []
+  });
 });
 
 // POST /api/import/commit

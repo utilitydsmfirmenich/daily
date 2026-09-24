@@ -1,4 +1,4 @@
-import { Activity, ActivityDefaults, CategoryStat, ImportBatch, ParsedImportRow, PIDInfo } from "../types";
+import { Activity, ActivityDefaults, CategoryStat, DashboardStatsResponse, ImportBatch, ParsedImportRow, PIDInfo } from "../types";
 
 class ApiError extends Error {
   status: number;
@@ -102,8 +102,18 @@ export const api = {
   // Categories
   getCategories: () => request<{ categories: CategoryStat[] }>("/api/categories"),
 
+  // Dashboard Stats
+  getDashboardStats: (params: { from?: string; to?: string; pid?: string } = {}) => {
+    const qp = new URLSearchParams();
+    if (params.from) qp.set("from", params.from);
+    if (params.to) qp.set("to", params.to);
+    if (params.pid) qp.set("pid", params.pid);
+    const qs = qp.toString();
+    return request<DashboardStatsResponse>(qs ? `/api/dashboard/stats?${qs}` : "/api/dashboard/stats");
+  },
+
   // Export
-  getExportData: async (from?: string, to?: string) => {
+  getExportData: async (from?: string, to?: string, pid?: string) => {
     let allActivities: Activity[] = [];
     let afterId = 0;
     let hasMore = true;
@@ -112,6 +122,7 @@ export const api = {
       const qp = new URLSearchParams();
       if (from) qp.set("from", from);
       if (to) qp.set("to", to);
+      if (pid) qp.set("pid", pid);
       if (afterId > 0) qp.set("after", String(afterId));
       qp.set("limit", "500");
 

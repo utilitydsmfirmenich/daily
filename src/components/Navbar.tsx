@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { generateTemplateExcel } from "../lib/excel-generator";
 import { 
   ClipboardList, 
+  LayoutDashboard,
   PenTool, 
   History, 
   UploadCloud, 
@@ -97,6 +98,17 @@ export const Navbar: React.FC = () => {
             {/* Desktop Navigation */}
             <nav className="hidden sm:flex items-center gap-1 ml-6">
               <Link
+                to="/dashboard"
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition ${
+                  location.pathname === "/dashboard"
+                    ? "bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Dashboard</span>
+              </Link>
+              <Link
                 to="/"
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition ${
                   location.pathname === "/"
@@ -185,9 +197,18 @@ export const Navbar: React.FC = () => {
       {/* Bottom Nav for Mobile (<640px) */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800 flex items-center justify-around h-16 pb-safe">
         <Link
+          to="/dashboard"
+          className={`flex flex-col items-center justify-center w-full h-full py-1 text-[11px] font-medium transition ${
+            location.pathname === "/dashboard" ? "text-blue-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <LayoutDashboard className="w-5 h-5 mb-0.5" />
+          <span>Dashboard</span>
+        </Link>
+        <Link
           to="/"
           className={`flex flex-col items-center justify-center w-full h-full py-1 text-[11px] font-medium transition ${
-            location.pathname === "/" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"
+            location.pathname === "/" ? "text-blue-400 font-bold" : "text-slate-400 hover:text-slate-200"
           }`}
         >
           <PenTool className="w-5 h-5 mb-0.5" />

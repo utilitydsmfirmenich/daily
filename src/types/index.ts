@@ -89,3 +89,49 @@ export interface ImportPreviewSummary {
   category_suggestions: Array<{ from: string; to: string }>;
   rows: ParsedImportRow[];
 }
+
+export interface DashboardKPI {
+  total_activities: number;
+  total_duration_min: number;
+  highlight_count: number;
+  unique_days: number;
+}
+
+export interface CategoryDistributionItem {
+  kategori: string;
+  count: number;
+  duration_min: number;
+}
+
+export interface DailyTrendItem {
+  tanggal: string;
+  hari: DayName;
+  duration_min: number;
+  count: number;
+  highlight_count: number;
+}
+
+export interface TopActivityItem {
+  kegiatan: string;
+  kategori: string | null;
+  count: number;
+  total_duration_min: number;
+}
+
+export interface OperatorStatItem {
+  pid: PIDType;
+  display_name: string;
+  total_activities: number;
+  total_duration_min: number;
+  highlight_count: number;
+}
+
+export interface DashboardStatsResponse {
+  kpi: DashboardKPI;
+  categories: CategoryDistributionItem[];
+  daily_trends: DailyTrendItem[];
+  top_longest: TopActivityItem[];
+  top_frequent: TopActivityItem[];
+  operator_stats: OperatorStatItem[];
+  highlights: Activity[];
+}

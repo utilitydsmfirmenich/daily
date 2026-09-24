@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Navbar } from "./components/Navbar";
 import { LoginPage } from "./pages/LoginPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { RecordPage } from "./pages/RecordPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { ImportWizardPage } from "./pages/ImportWizardPage";
@@ -61,6 +62,14 @@ export const App: React.FC = () => {
               <PublicOnlyRoute>
                 <LoginPage />
               </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedLayout>
+                <DashboardPage />
+              </ProtectedLayout>
             }
           />
           <Route
