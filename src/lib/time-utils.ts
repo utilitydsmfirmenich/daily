@@ -72,8 +72,64 @@ export function normalizeTimeString(raw: string): string | null {
   if (parts.length < 2) return null;
   const h = parseInt(parts[0], 10);
   const m = parseInt(parts[1], 10);
-  if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  if (isNaN(h) || isNaN(m)) return null;
+
+  // Support 24:00 (specifically hour 24 and minute 00)
+  if (h === 24 && m === 0) {
+    return "24:00";
+  }
+
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Intelligent blur formatter: converts "24", "16", "730", "1630", "2400", "8.00" into valid HH:MM
+ */
+export function formatTimeOnBlur(raw: string): string {
+  if (!raw) return "";
+  const clean = raw.trim().replace(".", ":");
+  if (!clean) return "";
+
+  // Check if standard normalization works directly
+  const norm = normalizeTimeString(clean);
+  if (norm) return norm;
+
+  // If contains colon with single digit hour, e.g. "8:30"
+  if (clean.includes(":")) {
+    const parts = clean.split(":");
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (!isNaN(h) && !isNaN(m)) {
+      if (h === 24 && m === 0) return "24:00";
+      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
+    }
+  }
+
+  // Pure digits without colon
+  const digitsOnly = clean.replace(/\D/g, "");
+  if (digitsOnly.length === 1 || digitsOnly.length === 2) {
+    const h = parseInt(digitsOnly, 10);
+    if (h === 24) return "24:00";
+    if (h >= 0 && h <= 23) return `${String(h).padStart(2, "0")}:00`;
+  } else if (digitsOnly.length === 3) {
+    const h = parseInt(digitsOnly.slice(0, 1), 10);
+    const m = parseInt(digitsOnly.slice(1, 3), 10);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  } else if (digitsOnly.length === 4) {
+    const h = parseInt(digitsOnly.slice(0, 2), 10);
+    const m = parseInt(digitsOnly.slice(2, 4), 10);
+    if (h === 24 && m === 0) return "24:00";
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+
+  return clean;
 }
 
 /**
@@ -89,14 +145,16 @@ export function calculateDuration(startTime: string, finishTime: string): {
   const normFinish = normalizeTimeString(finishTime);
 
   if (!normStart || !normFinish) {
-    return { durationMin: 0, isMidnightRollover: false, isValid: false, error: "Format jam tidak valid (HH:MM)" };
+    return { durationMin: 0, isMidnightRollover: false, isValid: false, error: "Format jam tidak valid (00:00 - 24:00)" };
   }
 
   const [sh, sm] = normStart.split(":").map(Number);
   const [fh, fm] = normFinish.split(":").map(Number);
 
-  const startTotalMinutes = sh * 60 + sm;
-  const finishTotalMinutes = fh * 60 + fm;
+  // If start is 24:00, treat as 00:00 (minute 0)
+  const startTotalMinutes = (sh === 24 ? 0 : sh) * 60 + sm;
+  // If finish is 24:00, treat as minute 1440
+  const finishTotalMinutes = (fh === 24 ? 24 : fh) * 60 + fm;
 
   if (finishTotalMinutes >= startTotalMinutes) {
     const diff = finishTotalMinutes - startTotalMinutes;
@@ -188,7 +246,14 @@ export function addMinutesToTime(timeStr: string, minutes: number): string {
   const norm = normalizeTimeString(timeStr);
   if (!norm) return "00:00";
   const [h, m] = norm.split(":").map(Number);
-  const totalMinutes = h * 60 + m + minutes;
+  const startMinutes = (h === 24 ? 0 : h) * 60 + m;
+  const totalMinutes = startMinutes + minutes;
+
+  // If addition lands exactly on midnight (1440 minutes, e.g. 23:00 + 1h or 16:00 + 8h)
+  if (totalMinutes === 1440) {
+    return "24:00";
+  }
+
   const normalizedTotal = ((totalMinutes % 1440) + 1440) % 1440;
   const newH = Math.floor(normalizedTotal / 60);
   const newM = normalizedTotal % 60;

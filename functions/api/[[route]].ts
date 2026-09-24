@@ -118,8 +118,8 @@ function getWIBDetails() {
 function calcDuration(start: string, finish: string): { duration: number; isMidnight: boolean; valid: boolean } {
   const [sh, sm] = start.split(":").map(Number);
   const [fh, fm] = finish.split(":").map(Number);
-  const sTot = sh * 60 + sm;
-  const fTot = fh * 60 + fm;
+  const sTot = (sh === 24 ? 0 : sh) * 60 + sm;
+  const fTot = (fh === 24 ? 24 : fh) * 60 + fm;
 
   if (fTot >= sTot) {
     return { duration: fTot - sTot, isMidnight: false, valid: true };
@@ -288,9 +288,20 @@ app.get("/api/activities/defaults", async (c) => {
     if (diffMinutes >= 0 && diffMinutes <= 720) {
       isShiftDate = true;
       shiftReason = "Mengikuti entri shift sebelumnya (selesai <= 12 jam lalu)";
-      chosenTanggal = lastEntry.tanggal;
-      chosenHari = lastEntry.hari;
-      defaultStart = lastEntry.finish_time;
+      if (lastEntry.finish_time === "24:00") {
+        const nextDt = new Date(Date.UTC(ly, lm - 1, ld + 1, 12, 0, 0));
+        const ny = nextDt.getUTCFullYear();
+        const nm = String(nextDt.getUTCMonth() + 1).padStart(2, "0");
+        const nd = String(nextDt.getUTCDate()).padStart(2, "0");
+        chosenTanggal = `${ny}-${nm}-${nd}`;
+        const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] as const;
+        chosenHari = dayNames[nextDt.getUTCDay()];
+        defaultStart = "00:00";
+      } else {
+        chosenTanggal = lastEntry.tanggal;
+        chosenHari = lastEntry.hari;
+        defaultStart = lastEntry.finish_time;
+      }
     }
   }
 

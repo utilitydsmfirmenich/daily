@@ -16,6 +16,7 @@ import { ExportDialog } from "../components/ExportDialog";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { QuickCategoryPills } from "../components/QuickCategoryPills";
+import { TimeInput } from "../components/TimeInput";
 import { 
   History as HistoryIcon, 
   Search, 
@@ -680,20 +681,28 @@ export const HistoryPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-300 mb-1">Start (HH:MM)</label>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={editForm.start_time}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev!, start_time: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold"
+                    onChange={(val) => setEditForm((prev) => ({ ...prev!, start_time: val }))}
+                    placeholder="07:20"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Finish (HH:MM)</label>
-                  <input
-                    type="time"
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-slate-300">Finish (HH:MM)</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev) => ({ ...prev!, finish_time: "24:00" }))}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-1 py-0.2 rounded font-mono font-bold transition"
+                      title="Set 24:00"
+                    >
+                      24:00
+                    </button>
+                  </div>
+                  <TimeInput
                     value={editForm.finish_time}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev!, finish_time: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold"
+                    onChange={(val) => setEditForm((prev) => ({ ...prev!, finish_time: val }))}
+                    placeholder="07:50"
                   />
                 </div>
               </div>

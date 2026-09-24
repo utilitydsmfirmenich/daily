@@ -15,6 +15,7 @@ import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { QuickCategoryPills } from "../components/QuickCategoryPills";
 import { TodayActivitiesTable } from "../components/TodayActivitiesTable";
+import { TimeInput } from "../components/TimeInput";
 import { generateActivitiesExcel } from "../lib/excel-generator";
 import { 
   Clock, 
@@ -447,7 +448,20 @@ export const RecordPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 5000);
 
       // Setup next chain: Start = previous Finish!
-      setStartTime(finishTime);
+      if (finishTime === "24:00") {
+        setStartTime("00:00");
+        // Advance tanggal and hari to the next day
+        const [y, m, d] = tanggal.split("-").map(Number);
+        const nextDt = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0));
+        const ny = nextDt.getUTCFullYear();
+        const nm = String(nextDt.getUTCMonth() + 1).padStart(2, "0");
+        const nd = String(nextDt.getUTCDate()).padStart(2, "0");
+        const nextIso = `${ny}-${nm}-${nd}`;
+        setTanggal(nextIso);
+        setHari(getDayFromDate(nextIso));
+      } else {
+        setStartTime(finishTime);
+      }
       setKegiatan("");
       setKeterangan("");
       setHighlight(false);
@@ -458,7 +472,7 @@ export const RecordPage: React.FC = () => {
       setFinishTime(defs.finish_time);
 
       // Reload today's activities preview table
-      await loadTodayActivities(tanggal);
+      await loadTodayActivities(finishTime === "24:00" ? tanggal : tanggal);
 
       kegiatanInputRef.current?.focus();
     } catch (err: any) {
@@ -600,13 +614,11 @@ export const RecordPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Waktu Mulai (Start)
                 </label>
-                <input
+                <TimeInput
                   ref={startInputRef}
-                  type="time"
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(val) => setStartTime(val)}
                   placeholder="07:20"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono font-bold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block">
                   {defaults?.start_time ? "Otomatis dari finish sebelumnya" : "Isi manual awal shift"}
@@ -618,25 +630,34 @@ export const RecordPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-300">
                     Waktu Selesai (Finish)
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setFinishTime(liveWib.timeStr)}
-                    className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
-                    title="Gunakan jam server sekarang"
-                  >
-                    <RefreshCw className="w-2.5 h-2.5" />
-                    <span>Jam sekarang</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setFinishTime("24:00")}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono font-bold transition flex items-center gap-0.5"
+                      title="Set waktu selesai tepat jam 24:00 (Akhir Shift Malam)"
+                    >
+                      <span>24:00</span>
+                      <span className="text-[9px] font-sans font-normal opacity-80">(Shift)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFinishTime(liveWib.timeStr)}
+                      className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
+                      title="Gunakan jam server sekarang"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5" />
+                      <span>Jam sekarang</span>
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type="time"
+                <TimeInput
                   value={finishTime}
-                  onChange={(e) => setFinishTime(e.target.value)}
+                  onChange={(val) => setFinishTime(val)}
                   placeholder="07:50"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono font-bold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Default jam saat simpan
+                  Format 00:00 - 24:00
                 </span>
               </div>
 
@@ -863,20 +884,28 @@ export const RecordPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-300 mb-1">Start (HH:MM)</label>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={editForm.start_time}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev!, start_time: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold"
+                    onChange={(val) => setEditForm((prev) => ({ ...prev!, start_time: val }))}
+                    placeholder="07:20"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Finish (HH:MM)</label>
-                  <input
-                    type="time"
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-slate-300">Finish (HH:MM)</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev) => ({ ...prev!, finish_time: "24:00" }))}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-1 py-0.2 rounded font-mono font-bold transition"
+                      title="Set 24:00"
+                    >
+                      24:00
+                    </button>
+                  </div>
+                  <TimeInput
                     value={editForm.finish_time}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev!, finish_time: e.target.value }))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold"
+                    onChange={(val) => setEditForm((prev) => ({ ...prev!, finish_time: val }))}
+                    placeholder="07:50"
                   />
                 </div>
               </div>
