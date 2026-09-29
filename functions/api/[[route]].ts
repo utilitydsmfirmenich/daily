@@ -561,13 +561,13 @@ app.get("/api/export", async (c) => {
     params.push(authPid);
   }
 
-  if (from) {
+  if (from && from.trim() !== "") {
     query += " AND tanggal >= ?";
-    params.push(from);
+    params.push(from.trim());
   }
-  if (to) {
+  if (to && to.trim() !== "") {
     query += " AND tanggal <= ?";
-    params.push(to);
+    params.push(to.trim());
   }
   if (afterId > 0) {
     query += " AND id > ?";
@@ -598,24 +598,44 @@ app.get("/api/dashboard/stats", async (c) => {
   let baseWhere = "deleted_at IS NULL";
   const baseParams: any[] = [];
 
+  let boundsWhere = "deleted_at IS NULL";
+  const boundsParams: any[] = [];
+
   if (targetPid && targetPid.toUpperCase() === "ALL") {
     // all operators
   } else if (targetPid) {
     baseWhere += " AND pid = ?";
     baseParams.push(targetPid.toUpperCase());
+    boundsWhere += " AND pid = ?";
+    boundsParams.push(targetPid.toUpperCase());
   } else {
     baseWhere += " AND pid = ?";
     baseParams.push(authPid);
+    boundsWhere += " AND pid = ?";
+    boundsParams.push(authPid);
   }
 
-  if (from) {
+  if (from && from.trim() !== "") {
     baseWhere += " AND tanggal >= ?";
-    baseParams.push(from);
+    baseParams.push(from.trim());
   }
-  if (to) {
+  if (to && to.trim() !== "") {
     baseWhere += " AND tanggal <= ?";
-    baseParams.push(to);
+    baseParams.push(to.trim());
   }
+
+  // 0. Operator Data Bounds (actual available dates in database)
+  const dataBoundsRes = await db
+    .prepare(
+      `SELECT 
+        MIN(tanggal) as min_tanggal, 
+        MAX(tanggal) as max_tanggal, 
+        COUNT(*) as total_count 
+      FROM activities 
+      WHERE ${boundsWhere}`
+    )
+    .bind(...boundsParams)
+    .first<any>();
 
   // 1. KPI Summary
   const kpiRes = await db
@@ -819,7 +839,12 @@ app.get("/api/dashboard/stats", async (c) => {
     top_frequent: topFrequentRes.results || [],
     operator_stats: operatorRes.results || [],
     highlights: highlightsRes.results || [],
-    shift_stats: shiftStats
+    shift_stats: shiftStats,
+    data_bounds: {
+      min_tanggal: dataBoundsRes?.min_tanggal || null,
+      max_tanggal: dataBoundsRes?.max_tanggal || null,
+      total_count: dataBoundsRes?.total_count || 0
+    }
   });
 });
 

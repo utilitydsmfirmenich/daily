@@ -150,4 +150,9 @@ export interface DashboardStatsResponse {
   operator_stats: OperatorStatItem[];
   highlights: Activity[];
   shift_stats?: ShiftBreakdownStats;
+  data_bounds?: {
+    min_tanggal: string | null;
+    max_tanggal: string | null;
+    total_count: number;
+  };
 }

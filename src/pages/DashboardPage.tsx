@@ -35,7 +35,7 @@ import {
   Timer
 } from "lucide-react";
 
-type PeriodPreset = "today" | "7days" | "month" | "last_month" | "custom";
+type PeriodPreset = "today" | "7days" | "month" | "last_month" | "year" | "all_time" | "custom";
 
 const OPERATOR_OPTIONS: { pid: string; label: string }[] = [
   { pid: "SELF", label: "Diri Sendiri" },
@@ -97,6 +97,14 @@ export const DashboardPage: React.FC = () => {
       const pd = String(lastDayObj.getUTCDate()).padStart(2, "0");
       return { from: `${py}-${pm}-01`, to: `${py}-${pm}-${pd}` };
     }
+    if (preset === "year") {
+      const from = `${y}-01-01`;
+      const to = `${y}-12-31`;
+      return { from, to };
+    }
+    if (preset === "all_time") {
+      return { from: "", to: "" };
+    }
     return { from: today, to: today };
   }, [wib.isoDate]);
 
@@ -119,8 +127,8 @@ export const DashboardPage: React.FC = () => {
     try {
       const queryPid = selectedPid === "SELF" ? user?.pid : selectedPid;
       const res = await api.getDashboardStats({
-        from: fromDate,
-        to: toDate,
+        from: periodPreset === "all_time" ? undefined : (fromDate || undefined),
+        to: periodPreset === "all_time" ? undefined : (toDate || undefined),
         pid: queryPid
       });
       setStats(res);
@@ -130,7 +138,7 @@ export const DashboardPage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [fromDate, toDate, selectedPid, user?.pid]);
+  }, [fromDate, toDate, periodPreset, selectedPid, user?.pid]);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -152,7 +160,9 @@ export const DashboardPage: React.FC = () => {
     setExporting(true);
     try {
       const queryPid = selectedPid === "SELF" ? user.pid : selectedPid;
-      const activities = await api.getExportData(fromDate, toDate, queryPid);
+      const exportFrom = periodPreset === "all_time" ? undefined : (fromDate || undefined);
+      const exportTo = periodPreset === "all_time" ? undefined : (toDate || undefined);
+      const activities = await api.getExportData(exportFrom, exportTo, queryPid);
 
       if (!activities || activities.length === 0) {
         alert("Tidak ada kegiatan dalam periode filter ini untuk diekspor.");
@@ -165,7 +175,8 @@ export const DashboardPage: React.FC = () => {
         durationFormat: "minutes"
       });
 
-      const filename = `dashboard_laporan_${activePidLabel}_${fromDate}_sd_${toDate}.xlsx`;
+      const datePart = periodPreset === "all_time" ? "semua_waktu" : `${fromDate}_sd_${toDate}`;
+      const filename = `dashboard_laporan_${activePidLabel}_${datePart}.xlsx`;
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -184,7 +195,11 @@ export const DashboardPage: React.FC = () => {
 
   // Navigate to history with filters
   const handleViewInHistory = () => {
-    navigate(`/riwayat?from=${fromDate}&to=${toDate}`);
+    if (periodPreset === "all_time") {
+      navigate(`/riwayat`);
+    } else {
+      navigate(`/riwayat?from=${fromDate}&to=${toDate}`);
+    }
   };
 
   // Calculations for KPI Cards
@@ -331,6 +346,8 @@ export const DashboardPage: React.FC = () => {
                     { key: "7days", label: "7 Hari" },
                     { key: "month", label: "Bulan Ini" },
                     { key: "last_month", label: "Bulan Lalu" },
+                    { key: "year", label: "Tahun Ini" },
+                    { key: "all_time", label: "Semua Waktu" },
                     { key: "custom", label: "Kustom" }
                   ] as const
                 ).map((p) => {
@@ -377,8 +394,20 @@ export const DashboardPage: React.FC = () => {
         {/* Current Active Date Badge */}
         <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
           <div>
-            Periode aktif: <strong className="text-slate-200">{formatDateToIndonesian(fromDate)}</strong> s/d{" "}
-            <strong className="text-slate-200">{formatDateToIndonesian(toDate)}</strong>
+            Periode aktif:{" "}
+            {periodPreset === "all_time" ? (
+              <strong className="text-blue-300">
+                Semua Waktu{" "}
+                {stats?.data_bounds?.min_tanggal && stats?.data_bounds?.max_tanggal
+                  ? `(${formatDateToIndonesian(stats.data_bounds.min_tanggal)} s/d ${formatDateToIndonesian(stats.data_bounds.max_tanggal)})`
+                  : "(Seluruh Catatan)"}
+              </strong>
+            ) : (
+              <>
+                <strong className="text-slate-200">{formatDateToIndonesian(fromDate)}</strong> s/d{" "}
+                <strong className="text-slate-200">{formatDateToIndonesian(toDate)}</strong>
+              </>
+            )}
           </div>
           {selectedPid === "ALL" && (
             <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-semibold border border-blue-500/30">
@@ -395,6 +424,53 @@ export const DashboardPage: React.FC = () => {
         </div>
       ) : (
         <>
+          {/* SMART BANNER: Saat filter aktif kosong namun ada data di periode lain */}
+          {stats && stats.kpi.total_activities === 0 && stats.data_bounds && stats.data_bounds.total_count > 0 && (
+            <div className="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-4 sm:p-5 mb-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-300">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0 mt-0.5">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-200">
+                    Tidak ada catatan pada rentang tanggal yang dipilih
+                  </h3>
+                  <p className="text-xs text-amber-300/80 mt-1 leading-relaxed">
+                    Ditemukan <strong className="text-white font-bold">{stats.data_bounds.total_count} kegiatan</strong> tercatat pada rentang{" "}
+                    <strong className="text-white font-bold">
+                      {formatDateToIndonesian(stats.data_bounds.min_tanggal || "")} s/d {formatDateToIndonesian(stats.data_bounds.max_tanggal || "")}
+                    </strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 self-start md:self-auto flex-shrink-0">
+                {stats.data_bounds.min_tanggal && stats.data_bounds.max_tanggal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodPreset("custom");
+                      setFromDate(stats.data_bounds!.min_tanggal!);
+                      setToDate(stats.data_bounds!.max_tanggal!);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm transition active:scale-95"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Buka Periode Tersebut</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset("all_time")}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-200 border border-amber-500/30 transition active:scale-95"
+                >
+                  <span>Tampilkan Semua Waktu</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* SECTION 1: 4 KEY KPI SUMMARY CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Card 1: Total Jam Kerja */}
