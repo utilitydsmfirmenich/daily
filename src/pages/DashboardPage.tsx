@@ -471,6 +471,25 @@ export const DashboardPage: React.FC = () => {
             </div>
           )}
 
+          {/* EMPTY BANNER: Operator belum punya data sama sekali di database */}
+          {stats && stats.kpi.total_activities === 0 && stats.data_bounds && stats.data_bounds.total_count === 0 && (
+            <div className="bg-slate-800/60 border border-slate-600/60 rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-in fade-in duration-300">
+              <div className="w-10 h-10 rounded-xl bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-slate-400 flex-shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-slate-200">
+                  Belum ada data untuk operator ini
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  {selectedPid === "ALL"
+                    ? "Belum ada kegiatan yang dicatat oleh seluruh tim."
+                    : `Operator ${OPERATOR_OPTIONS.find(o => o.pid === selectedPid)?.label ?? selectedPid} belum memiliki catatan kegiatan apapun. Minta mereka login dan mulai mencatat kegiatan harian.`}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* SECTION 1: 4 KEY KPI SUMMARY CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Card 1: Total Jam Kerja */}
