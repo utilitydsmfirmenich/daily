@@ -585,6 +585,46 @@ app.get("/api/export", async (c) => {
   return c.json({ activities: rows, has_more: hasMore });
 });
 
+// GET /api/debug/activities (TEMPORARY — remove after debugging)
+app.get("/api/debug/activities", async (c) => {
+  const authPid = c.get("pid");
+  const db = c.env.DB;
+  const url = new URL(c.req.url);
+  const from = url.searchParams.get("from") || null;
+  const to = url.searchParams.get("to") || null;
+  const targetPid = url.searchParams.get("pid") || authPid;
+
+  const pidUsed = targetPid?.toUpperCase() || authPid;
+
+  const rows = await db
+    .prepare("SELECT id, pid, tanggal, hari, start_time, finish_time, duration_min, kegiatan, deleted_at FROM activities WHERE pid = ? AND deleted_at IS NULL ORDER BY tanggal DESC, id DESC LIMIT 20")
+    .bind(pidUsed)
+    .all<any>();
+
+  const kpi = await db
+    .prepare("SELECT COUNT(*) as total, MIN(tanggal) as min_date, MAX(tanggal) as max_date FROM activities WHERE pid = ? AND deleted_at IS NULL")
+    .bind(pidUsed)
+    .first<any>();
+
+  let filtered = null;
+  if (from && to) {
+    filtered = await db
+      .prepare("SELECT COUNT(*) as total FROM activities WHERE pid = ? AND deleted_at IS NULL AND tanggal >= ? AND tanggal <= ?")
+      .bind(pidUsed, from, to)
+      .first<any>();
+  }
+
+  return c.json({
+    auth_pid: authPid,
+    target_pid: pidUsed,
+    from_param: from,
+    to_param: to,
+    all_data_summary: kpi,
+    filtered_count: filtered,
+    recent_20: rows.results || []
+  });
+});
+
 // GET /api/dashboard/stats
 app.get("/api/dashboard/stats", async (c) => {
   const authPid = c.get("pid");
