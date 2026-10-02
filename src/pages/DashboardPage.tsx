@@ -66,6 +66,7 @@ export const DashboardPage: React.FC = () => {
   // Filters State
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("month");
   const [selectedPid, setSelectedPid] = useState<string>("SELF");
+  const [selectedShift, setSelectedShift] = useState<string>("");
 
   // Date bounds based on preset
   const calculatePresetDates = useCallback((preset: PeriodPreset): { from: string; to: string } => {
@@ -129,7 +130,8 @@ export const DashboardPage: React.FC = () => {
       const res = await api.getDashboardStats({
         from: periodPreset === "all_time" ? undefined : (fromDate || undefined),
         to: periodPreset === "all_time" ? undefined : (toDate || undefined),
-        pid: queryPid
+        pid: queryPid,
+        shift: selectedShift || undefined
       });
       setStats(res);
     } catch (err: any) {
@@ -138,7 +140,7 @@ export const DashboardPage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [fromDate, toDate, periodPreset, selectedPid, user?.pid]);
+  }, [fromDate, toDate, periodPreset, selectedPid, selectedShift, user?.pid]);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -162,7 +164,7 @@ export const DashboardPage: React.FC = () => {
       const queryPid = selectedPid === "SELF" ? user.pid : selectedPid;
       const exportFrom = periodPreset === "all_time" ? undefined : (fromDate || undefined);
       const exportTo = periodPreset === "all_time" ? undefined : (toDate || undefined);
-      const activities = await api.getExportData(exportFrom, exportTo, queryPid);
+      const activities = await api.getExportData(exportFrom, exportTo, queryPid, selectedShift || undefined);
 
       if (!activities || activities.length === 0) {
         alert("Tidak ada kegiatan dalam periode filter ini untuk diekspor.");
@@ -176,7 +178,8 @@ export const DashboardPage: React.FC = () => {
       });
 
       const datePart = periodPreset === "all_time" ? "semua_waktu" : `${fromDate}_sd_${toDate}`;
-      const filename = `dashboard_laporan_${activePidLabel}_${datePart}.xlsx`;
+      const shiftPart = selectedShift ? `_${selectedShift.toLowerCase()}` : "";
+      const filename = `dashboard_laporan_${activePidLabel}_${datePart}${shiftPart}.xlsx`;
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -195,10 +198,11 @@ export const DashboardPage: React.FC = () => {
 
   // Navigate to history with filters
   const handleViewInHistory = () => {
+    const shiftParam = selectedShift ? `&shift=${selectedShift}` : "";
     if (periodPreset === "all_time") {
-      navigate(`/riwayat`);
+      navigate(`/riwayat?${selectedShift ? `shift=${selectedShift}` : ""}`);
     } else {
-      navigate(`/riwayat?from=${fromDate}&to=${toDate}`);
+      navigate(`/riwayat?from=${fromDate}&to=${toDate}${shiftParam}`);
     }
   };
 
@@ -391,6 +395,43 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Shift Filter Row */}
+        <div className="mt-3 pt-3 border-t border-slate-750 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1">
+              <Sun className="w-3 h-3 text-amber-400" />
+              <span>Filter Shift:</span>
+            </span>
+            <div className="flex items-center gap-1">
+              {[
+                { key: "", label: "Semua Shift" },
+                { key: "SHIFT_1", label: "Shift 1 (Pagi)" },
+                { key: "SHIFT_2", label: "Shift 2 (Malam)" }
+              ].map((s) => {
+                const isActive = selectedShift === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setSelectedShift(s.key)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
+                      isActive
+                        ? s.key === "SHIFT_1"
+                          ? "bg-amber-500/20 text-amber-300 border-amber-500/60 ring-1 ring-amber-500/30"
+                          : s.key === "SHIFT_2"
+                          ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/60 ring-1 ring-indigo-500/30"
+                          : "bg-blue-600/30 text-blue-200 border-blue-500 ring-1 ring-blue-500/30"
+                        : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Current Active Date Badge */}
         <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
           <div>
@@ -407,6 +448,11 @@ export const DashboardPage: React.FC = () => {
                 <strong className="text-slate-200">{formatDateToIndonesian(fromDate)}</strong> s/d{" "}
                 <strong className="text-slate-200">{formatDateToIndonesian(toDate)}</strong>
               </>
+            )}
+            {selectedShift && (
+              <span className="ml-2 font-semibold text-amber-300">
+                • {selectedShift === "SHIFT_1" ? "Hanya Shift 1" : "Hanya Shift 2"}
+              </span>
             )}
           </div>
           {selectedPid === "ALL" && (

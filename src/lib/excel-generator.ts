@@ -213,25 +213,55 @@ export async function generateActivitiesExcel(
       renderDataRow(act);
     }
   } else {
-    // "as_original": Grouped by day with 2-row header per day block and blank row separator
-    // Group activities by date
-    const grouped = new Map<string, Activity[]>();
+    let isFirstBlock = true;
+    // Group activities by Shift block (tanggal + shift)
+    const shiftGroups = new Map<string, { tanggal: string; hari: string; shift: string; activities: Activity[] }>();
     for (const act of activities) {
-      const list = grouped.get(act.tanggal) || [];
-      list.push(act);
-      grouped.set(act.tanggal, list);
+      const actShift = act.shift || (act.start_time >= "07:30" && act.start_time < "19:30" ? "SHIFT_1" : "SHIFT_2");
+      const key = `${act.tanggal}_${actShift}`;
+      const existing = shiftGroups.get(key) || {
+        tanggal: act.tanggal,
+        hari: act.hari,
+        shift: actShift,
+        activities: []
+      };
+      existing.activities.push(act);
+      shiftGroups.set(key, existing);
     }
 
-    let isFirstBlock = true;
-    for (const [, dayActivities] of grouped) {
+    for (const [, group] of shiftGroups) {
       if (!isFirstBlock) {
-        // Add 1 blank row between days
+        // Add 1 blank row between shift blocks
         currentRow++;
       }
       isFirstBlock = false;
 
+      // Render Shift Banner Row
+      const bannerRow = currentRow;
+      const shiftName = group.shift === "SHIFT_1" ? "SHIFT 1 (PAGI)" : "SHIFT 2 (MALAM)";
+      const bannerTitle = `${shiftName} — ${group.hari.toUpperCase()}, ${formatDateToIndonesian(group.tanggal)}`;
+      
+      sheet.mergeCells(`A${bannerRow}:I${bannerRow}`);
+      const bannerCell = sheet.getCell(`A${bannerRow}`);
+      bannerCell.value = bannerTitle;
+      bannerCell.font = {
+        name: "Segoe UI",
+        size: 10,
+        bold: true,
+        color: { argb: group.shift === "SHIFT_1" ? "FF92400E" : "FF3730A3" }
+      };
+      bannerCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: group.shift === "SHIFT_1" ? "FFFDE68A" : "FFE0E7FF" }
+      };
+      bannerCell.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+      bannerCell.border = THIN_BORDER;
+
+      currentRow++;
+
       renderHeader();
-      for (const act of dayActivities) {
+      for (const act of group.activities) {
         renderDataRow(act);
       }
     }

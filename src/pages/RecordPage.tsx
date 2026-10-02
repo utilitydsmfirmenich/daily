@@ -10,7 +10,7 @@ import {
   getCurrentWIB,
   addMinutesToTime 
 } from "../lib/time-utils";
-import { Activity, ActivityDefaults, DayName } from "../types";
+import { Activity, ActivityDefaults, DayName, ShiftType } from "../types";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { QuickCategoryPills } from "../components/QuickCategoryPills";
@@ -33,7 +33,9 @@ import {
   Edit3,
   Trash2,
   Check,
-  X
+  X,
+  Sun,
+  Moon
 } from "lucide-react";
 
 export const RecordPage: React.FC = () => {
@@ -56,6 +58,7 @@ export const RecordPage: React.FC = () => {
   // Form states
   const [tanggal, setTanggal] = useState("");
   const [hari, setHari] = useState<DayName>("Senin");
+  const [shift, setShift] = useState<ShiftType>("SHIFT_1");
   const [startTime, setStartTime] = useState("");
   const [finishTime, setFinishTime] = useState("");
   const [kegiatan, setKegiatan] = useState("");
@@ -81,6 +84,7 @@ export const RecordPage: React.FC = () => {
   const [editForm, setEditForm] = useState<{
     tanggal: string;
     hari: DayName;
+    shift: ShiftType;
     start_time: string;
     finish_time: string;
     kegiatan: string;
@@ -118,6 +122,7 @@ export const RecordPage: React.FC = () => {
           const parsed = JSON.parse(savedDraft);
           setTanggal(parsed.tanggal || defs.tanggal);
           setHari(parsed.hari || defs.hari);
+          setShift(parsed.shift || defs.shift || "SHIFT_1");
           setStartTime(parsed.start_time || defs.start_time);
           setFinishTime(parsed.finish_time || defs.finish_time);
           setKegiatan(parsed.kegiatan || "");
@@ -135,6 +140,7 @@ export const RecordPage: React.FC = () => {
       // Apply server defaults
       setTanggal(defs.tanggal);
       setHari(defs.hari);
+      setShift(defs.shift || "SHIFT_1");
       setStartTime(defs.start_time);
       setFinishTime(defs.finish_time);
       setIsShiftActive(defs.is_shift_date);
@@ -165,6 +171,7 @@ export const RecordPage: React.FC = () => {
     const draft = {
       tanggal,
       hari,
+      shift,
       start_time: startTime,
       finish_time: finishTime,
       kegiatan,
@@ -174,7 +181,22 @@ export const RecordPage: React.FC = () => {
       is_shift_active: isShiftActive
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [tanggal, hari, startTime, finishTime, kegiatan, kategori, keterangan, highlight, isShiftActive]);
+  }, [tanggal, hari, shift, startTime, finishTime, kegiatan, kategori, keterangan, highlight, isShiftActive]);
+
+  // Auto-detect shift when startTime changes (operator can still manually override)
+  const handleStartTimeChange = (newStartTime: string) => {
+    setStartTime(newStartTime);
+    if (newStartTime && newStartTime.includes(":")) {
+      const [sh, sm] = newStartTime.split(":").map(Number);
+      if (!isNaN(sh) && !isNaN(sm)) {
+        const sMin = (sh === 24 ? 0 : sh) * 60 + sm;
+        // Shift 1: 07:30 (450) s/d 19:29 (1169)
+        // Shift 2: 19:30 (1170) s/d 07:29 (449)
+        const autoShift: ShiftType = (sMin >= 450 && sMin < 1170) ? "SHIFT_1" : "SHIFT_2";
+        setShift(autoShift);
+      }
+    }
+  };
 
   // Click outside category dropdown
   useEffect(() => {
@@ -195,13 +217,14 @@ export const RecordPage: React.FC = () => {
     }
   };
 
-  // Load activities for current selected date
-  const loadTodayActivities = async (targetDate?: string) => {
+  // Load activities for current selected date & shift
+  const loadTodayActivities = async (targetDate?: string, targetShift?: ShiftType) => {
     const d = targetDate || tanggal;
+    const s = targetShift || shift;
     if (!d) return;
     setLoadingTodayActivities(true);
     try {
-      const res = await api.getActivities({ from: d, to: d });
+      const res = await api.getActivities({ from: d, to: d, shift: s });
       setTodayActivities(res.activities || []);
     } catch {
       // ignore
@@ -212,9 +235,9 @@ export const RecordPage: React.FC = () => {
 
   useEffect(() => {
     if (tanggal) {
-      loadTodayActivities(tanggal);
+      loadTodayActivities(tanggal, shift);
     }
-  }, [tanggal]);
+  }, [tanggal, shift]);
 
   // Edit Activity Handlers
   const handleStartEdit = (act: Activity) => {
@@ -222,6 +245,7 @@ export const RecordPage: React.FC = () => {
     setEditForm({
       tanggal: act.tanggal,
       hari: act.hari,
+      shift: act.shift || "SHIFT_1",
       start_time: act.start_time,
       finish_time: act.finish_time,
       kegiatan: act.kegiatan,
@@ -249,6 +273,7 @@ export const RecordPage: React.FC = () => {
       const res = await api.updateActivity(editingActivity.id, {
         tanggal: editForm.tanggal,
         hari: editForm.hari,
+        shift: editForm.shift,
         start_time: editForm.start_time,
         finish_time: editForm.finish_time,
         kegiatan: editForm.kegiatan.trim(),
@@ -372,7 +397,7 @@ export const RecordPage: React.FC = () => {
     setExportingToday(true);
     try {
       const targetDate = defaults?.is_shift_date && isShiftActive ? defaults.tanggal : tanggal;
-      const activities = await api.getExportData(targetDate, targetDate);
+      const activities = await api.getExportData(targetDate, targetDate, user.pid, shift);
 
       if (!activities || activities.length === 0) {
         setErrorMessage(`Belum ada catatan kegiatan untuk tanggal/shift ${formatDateToIndonesian(targetDate)}.`);
@@ -385,7 +410,8 @@ export const RecordPage: React.FC = () => {
         durationFormat: "minutes"
       });
 
-      const filename = `pencatatan_kegiatan_${user.pid}_${targetDate}.xlsx`;
+      const shiftLabel = shift === "SHIFT_1" ? "shift_1" : "shift_2";
+      const filename = `pencatatan_kegiatan_${user.pid}_${targetDate}_${shiftLabel}.xlsx`;
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -433,6 +459,7 @@ export const RecordPage: React.FC = () => {
         client_id: crypto.randomUUID(),
         tanggal,
         hari,
+        shift,
         start_time: startTime,
         finish_time: finishTime,
         kegiatan: kegiatan.trim(),
@@ -573,9 +600,9 @@ export const RecordPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
-          {/* Row 1: Tanggal & Hari */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+          {/* Row 1: Tanggal, Hari, & Pilihan Shift */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+            <div className="sm:col-span-4">
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Tanggal (dd/mm/yyyy)
               </label>
@@ -589,7 +616,7 @@ export const RecordPage: React.FC = () => {
               </div>
             </div>
 
-            <div>
+            <div className="sm:col-span-3">
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Hari
               </label>
@@ -605,6 +632,44 @@ export const RecordPage: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            <div className="sm:col-span-5">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Shift Kerja
+                </label>
+                <span className="text-[10px] text-slate-400">
+                  (Otomatis / Manual)
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShift("SHIFT_1")}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                    shift === "SHIFT_1"
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-sm shadow-amber-500/10 ring-1 ring-amber-500/40"
+                      : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                  }`}
+                >
+                  <Sun className={`w-3.5 h-3.5 ${shift === "SHIFT_1" ? "text-amber-400" : "text-slate-500"}`} />
+                  <span>Shift 1 (Pagi)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShift("SHIFT_2")}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                    shift === "SHIFT_2"
+                      ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/60 shadow-sm shadow-indigo-500/10 ring-1 ring-indigo-500/40"
+                      : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                  }`}
+                >
+                  <Moon className={`w-3.5 h-3.5 ${shift === "SHIFT_2" ? "text-indigo-400" : "text-slate-500"}`} />
+                  <span>Shift 2 (Malam)</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Row 2: Waktu Start, Finish, & Live Total Duration */}
@@ -617,7 +682,7 @@ export const RecordPage: React.FC = () => {
                 <TimeInput
                   ref={startInputRef}
                   value={startTime}
-                  onChange={(val) => setStartTime(val)}
+                  onChange={(val) => handleStartTimeChange(val)}
                   placeholder="07:20"
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block">
@@ -878,6 +943,36 @@ export const RecordPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">Shift</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((prev) => ({ ...prev!, shift: "SHIFT_1" }))}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
+                      editForm.shift === "SHIFT_1"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/60 ring-1 ring-amber-500/40"
+                        : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Shift 1 (Pagi)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((prev) => ({ ...prev!, shift: "SHIFT_2" }))}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
+                      editForm.shift === "SHIFT_2"
+                        ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/60 ring-1 ring-indigo-500/40"
+                        : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Shift 2 (Malam)</span>
+                  </button>
                 </div>
               </div>
 

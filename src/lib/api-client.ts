@@ -54,6 +54,8 @@ export const api = {
       q?: string;
       before?: string;
       days?: number;
+      shift?: string;
+      pid?: string;
     } = {}
   ) => {
     const qp = new URLSearchParams();
@@ -63,6 +65,8 @@ export const api = {
     if (params.q) qp.set("q", params.q);
     if (params.before) qp.set("before", params.before);
     if (params.days) qp.set("days", String(params.days));
+    if (params.shift) qp.set("shift", params.shift);
+    if (params.pid) qp.set("pid", params.pid);
     const qs = qp.toString();
     return request<{ activities: Activity[] }>(qs ? `/api/activities?${qs}` : "/api/activities");
   },
@@ -77,6 +81,7 @@ export const api = {
     kategori?: string | null;
     keterangan?: string | null;
     highlight?: boolean;
+    shift?: string;
   }) =>
     request<{ activity: Activity }>("/api/activities", {
       method: "POST",
@@ -103,17 +108,18 @@ export const api = {
   getCategories: () => request<{ categories: CategoryStat[] }>("/api/categories"),
 
   // Dashboard Stats
-  getDashboardStats: (params: { from?: string; to?: string; pid?: string } = {}) => {
+  getDashboardStats: (params: { from?: string; to?: string; pid?: string; shift?: string } = {}) => {
     const qp = new URLSearchParams();
     if (params.from) qp.set("from", params.from);
     if (params.to) qp.set("to", params.to);
     if (params.pid) qp.set("pid", params.pid);
+    if (params.shift) qp.set("shift", params.shift);
     const qs = qp.toString();
     return request<DashboardStatsResponse>(qs ? `/api/dashboard/stats?${qs}` : "/api/dashboard/stats");
   },
 
   // Export
-  getExportData: async (from?: string, to?: string, pid?: string) => {
+  getExportData: async (from?: string, to?: string, pid?: string, shift?: string) => {
     let allActivities: Activity[] = [];
     let afterId = 0;
     let hasMore = true;
@@ -123,6 +129,7 @@ export const api = {
       if (from) qp.set("from", from);
       if (to) qp.set("to", to);
       if (pid) qp.set("pid", pid);
+      if (shift) qp.set("shift", shift);
       if (afterId > 0) qp.set("after", String(afterId));
       qp.set("limit", "500");
 

@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api-client";
-import { Activity, DayName } from "../types";
+import { Activity, DayName, ShiftType } from "../types";
 import { 
   formatDateToIndonesian, 
   getDayFromDate, 
   formatDurationHuman, 
-  calculateDuration,
+  calculateDuration, 
   getCurrentWIB,
   addMinutesToTime 
 } from "../lib/time-utils";
@@ -32,7 +32,9 @@ import {
   Bookmark, 
   ChevronDown, 
   ChevronUp, 
-  Loader2
+  Loader2,
+  Sun,
+  Moon
 } from "lucide-react";
 
 export const HistoryPage: React.FC = () => {
@@ -45,6 +47,7 @@ export const HistoryPage: React.FC = () => {
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedShift, setSelectedShift] = useState<string>("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -57,6 +60,7 @@ export const HistoryPage: React.FC = () => {
   const [editForm, setEditForm] = useState<{
     tanggal: string;
     hari: DayName;
+    shift: ShiftType;
     start_time: string;
     finish_time: string;
     kegiatan: string;
@@ -83,6 +87,7 @@ export const HistoryPage: React.FC = () => {
           from: fromDate || undefined,
           to: toDate || undefined,
           kategori: selectedCategory || undefined,
+          shift: selectedShift || undefined,
           q: searchQuery || undefined
         }),
         api.getCategories()
@@ -98,7 +103,7 @@ export const HistoryPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [fromDate, toDate, selectedCategory]);
+  }, [fromDate, toDate, selectedCategory, selectedShift]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,32 +113,39 @@ export const HistoryPage: React.FC = () => {
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedCategory("");
+    setSelectedShift("");
     setFromDate("");
     setToDate("");
   };
 
-  // Group activities by date
-  const groupedByDay = useMemo(() => {
-    const map = new Map<string, { tanggal: string; hari: string; items: Activity[]; totalMin: number }>();
+  // Group activities by Shift block: key = `${tanggal}_${shift}`
+  const groupedByShift = useMemo(() => {
+    const map = new Map<string, { key: string; tanggal: string; hari: string; shift: ShiftType; items: Activity[]; totalMin: number }>();
     for (const act of activities) {
-      const existing = map.get(act.tanggal) || {
+      const actShift: ShiftType = act.shift || (act.start_time >= "07:30" && act.start_time < "19:30" ? "SHIFT_1" : "SHIFT_2");
+      const groupKey = `${act.tanggal}_${actShift}`;
+      const existing = map.get(groupKey) || {
+        key: groupKey,
         tanggal: act.tanggal,
         hari: act.hari,
+        shift: actShift,
         items: [],
         totalMin: 0
       };
       existing.items.push(act);
       existing.totalMin += act.duration_min;
-      map.set(act.tanggal, existing);
+      map.set(groupKey, existing);
     }
     return Array.from(map.values());
   }, [activities]);
 
   const startEdit = (act: Activity) => {
+    const actShift: ShiftType = act.shift || (act.start_time >= "07:30" && act.start_time < "19:30" ? "SHIFT_1" : "SHIFT_2");
     setEditingActivity(act);
     setEditForm({
       tanggal: act.tanggal,
       hari: act.hari,
+      shift: actShift,
       start_time: act.start_time,
       finish_time: act.finish_time,
       kegiatan: act.kegiatan,
@@ -161,6 +173,7 @@ export const HistoryPage: React.FC = () => {
       const res = await api.updateActivity(editingActivity.id, {
         tanggal: editForm.tanggal,
         hari: editForm.hari,
+        shift: editForm.shift,
         start_time: editForm.start_time,
         finish_time: editForm.finish_time,
         kegiatan: editForm.kegiatan.trim(),
@@ -341,7 +354,7 @@ export const HistoryPage: React.FC = () => {
 
       {/* Filter Bar */}
       <div className="bg-slate-800/90 border border-slate-700/80 p-4 rounded-2xl mb-6 shadow-sm">
-        <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+        <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
           <div className="lg:col-span-2">
             <label className="block text-[11px] font-semibold text-slate-400 mb-1">Cari Kegiatan / Keterangan</label>
             <div className="relative">
@@ -369,6 +382,19 @@ export const HistoryPage: React.FC = () => {
                   {c}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Shift</label>
+            <select
+              value={selectedShift}
+              onChange={(e) => setSelectedShift(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Semua Shift</option>
+              <option value="SHIFT_1">Shift 1 (Pagi)</option>
+              <option value="SHIFT_2">Shift 2 (Malam)</option>
             </select>
           </div>
 
@@ -450,18 +476,42 @@ export const HistoryPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {groupedByDay.map((group) => (
-            <div key={group.tanggal} className="bg-slate-800/90 border border-slate-700 rounded-2xl overflow-hidden shadow-sm">
-              {/* Day Header Banner */}
-              <div className="bg-slate-800 border-b border-slate-700 px-4 sm:px-6 py-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-400" />
-                  <span className="font-bold text-white text-xs sm:text-sm">
-                    {group.hari}, {formatDateToIndonesian(group.tanggal)}
-                  </span>
+          {groupedByShift.map((group) => (
+            <div key={group.key} className="bg-slate-800/90 border border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+              {/* Shift Header Banner */}
+              <div className={`px-4 sm:px-6 py-2.5 flex items-center justify-between border-b ${
+                group.shift === "SHIFT_1"
+                  ? "bg-amber-950/30 border-amber-500/30"
+                  : "bg-indigo-950/30 border-indigo-500/30"
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  {group.shift === "SHIFT_1" ? (
+                    <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                      <Sun className="w-3.5 h-3.5" />
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                      <Moon className="w-3.5 h-3.5" />
+                    </div>
+                  )}
+                  <div>
+                    <span className={`font-bold text-xs sm:text-sm ${
+                      group.shift === "SHIFT_1" ? "text-amber-300" : "text-indigo-300"
+                    }`}>
+                      {group.shift === "SHIFT_1" ? "Shift 1 (Pagi)" : "Shift 2 (Malam)"}
+                    </span>
+                    <span className="text-slate-300 text-xs sm:text-sm font-semibold ml-2">
+                      — {group.hari}, {formatDateToIndonesian(group.tanggal)}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                  Total: {formatDurationHuman(group.totalMin)}
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400">
+                    {group.items.length} tugas
+                  </span>
+                  <div className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono">
+                    Total: {formatDurationHuman(group.totalMin)}
+                  </div>
                 </div>
               </div>
 
@@ -675,6 +725,36 @@ export const HistoryPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">Shift</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((prev) => ({ ...prev!, shift: "SHIFT_1" }))}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
+                      editForm.shift === "SHIFT_1"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/60 ring-1 ring-amber-500/40"
+                        : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Shift 1 (Pagi)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((prev) => ({ ...prev!, shift: "SHIFT_2" }))}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
+                      editForm.shift === "SHIFT_2"
+                        ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/60 ring-1 ring-indigo-500/40"
+                        : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Shift 2 (Malam)</span>
+                  </button>
                 </div>
               </div>
 

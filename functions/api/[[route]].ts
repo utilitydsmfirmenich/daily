@@ -271,6 +271,28 @@ app.get("/api/activities/defaults", async (c) => {
   let chosenHari = wib.dayName;
   let defaultStart = "";
 
+  // Determine current active shift based on current WIB time
+  const [currH, currM] = wib.timeStr.split(":").map(Number);
+  const currMin = currH * 60 + currM;
+  // Shift 1: 07:30 (450) s/d 19:29 (1169)
+  // Shift 2: 19:30 (1170) s/d 07:29 (449)
+  let detectedShift: "SHIFT_1" | "SHIFT_2" = (currMin >= 450 && currMin < 1170) ? "SHIFT_1" : "SHIFT_2";
+
+  // If in Shift 2 and it's early morning (00:00 - 08:30, i.e. currMin < 510),
+  // default shift start date is yesterday's date
+  if (detectedShift === "SHIFT_2" && currMin < 510) {
+    const [cy, cm, cd] = wib.isoDate.split("-").map(Number);
+    const yesterday = new Date(Date.UTC(cy, cm - 1, cd - 1, 12, 0, 0));
+    const yy = yesterday.getUTCFullYear();
+    const ym = String(yesterday.getUTCMonth() + 1).padStart(2, "0");
+    const yd = String(yesterday.getUTCDate()).padStart(2, "0");
+    chosenTanggal = `${yy}-${ym}-${yd}`;
+    const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] as const;
+    chosenHari = dayNames[yesterday.getUTCDay()];
+    isShiftDate = true;
+    shiftReason = "Shift 2 Malam (kegiatan dini hari dicatat pada tanggal awal shift)";
+  }
+
   if (lastEntry) {
     const lastDate = lastEntry.tanggal;
     const lastFinish = lastEntry.finish_time;
@@ -286,20 +308,14 @@ app.get("/api/activities/defaults", async (c) => {
     const diffMinutes = (currentUtcMs - lastUtcMs) / 60000;
 
     if (diffMinutes >= 0 && diffMinutes <= 720) {
+      if (lastEntry.shift) {
+        detectedShift = lastEntry.shift;
+      }
       isShiftDate = true;
       shiftReason = "Mengikuti entri shift sebelumnya (selesai <= 12 jam lalu)";
       if (lastEntry.finish_time === "24:00") {
-        const nextDt = new Date(Date.UTC(ly, lm - 1, ld + 1, 12, 0, 0));
-        const ny = nextDt.getUTCFullYear();
-        const nm = String(nextDt.getUTCMonth() + 1).padStart(2, "0");
-        const nd = String(nextDt.getUTCDate()).padStart(2, "0");
-        chosenTanggal = `${ny}-${nm}-${nd}`;
-        const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] as const;
-        chosenHari = dayNames[nextDt.getUTCDay()];
         defaultStart = "00:00";
       } else {
-        chosenTanggal = lastEntry.tanggal;
-        chosenHari = lastEntry.hari;
         defaultStart = lastEntry.finish_time;
       }
     }
@@ -312,6 +328,7 @@ app.get("/api/activities/defaults", async (c) => {
     tanggal: chosenTanggal,
     hari: chosenHari,
     start_time: defaultStart,
+    shift: detectedShift,
     is_shift_date: isShiftDate,
     shift_date_reason: shiftReason,
     last_activity: lastEntry || null
@@ -330,6 +347,7 @@ app.get("/api/activities", async (c) => {
   const q = url.searchParams.get("q");
   const before = url.searchParams.get("before");
   const targetPid = url.searchParams.get("pid");
+  const shift = url.searchParams.get("shift");
 
   let query = "SELECT * FROM activities WHERE deleted_at IS NULL";
   const params: any[] = [];
@@ -342,6 +360,11 @@ app.get("/api/activities", async (c) => {
   } else {
     query += " AND pid = ?";
     params.push(authPid);
+  }
+
+  if (shift && (shift === "SHIFT_1" || shift === "SHIFT_2")) {
+    query += " AND shift = ?";
+    params.push(shift);
   }
 
   if (from) {
@@ -410,6 +433,14 @@ app.post("/api/activities", async (c) => {
     return c.json({ error: "Waktu selesai (Finish) lebih awal dari jam mulai dan melebihi batas 12 jam." }, 400);
   }
 
+  // Determine shift: use user selected shift if valid, otherwise auto-calculate from startTime
+  let shift = body.shift;
+  if (!shift || (shift !== "SHIFT_1" && shift !== "SHIFT_2")) {
+    const [sh, sm] = startTime.split(":").map(Number);
+    const sMin = (sh === 24 ? 0 : sh) * 60 + sm;
+    shift = (sMin >= 450 && sMin < 1170) ? "SHIFT_1" : "SHIFT_2";
+  }
+
   const kategori = body.kategori ? body.kategori.trim() : null;
   const keterangan = body.keterangan ? body.keterangan.trim() : null;
   const highlight = body.highlight ? 1 : 0;
@@ -417,11 +448,11 @@ app.post("/api/activities", async (c) => {
 
   const result = await db
     .prepare(
-      "INSERT INTO activities (client_id, pid, tanggal, hari, start_time, finish_time, duration_min, kegiatan, kategori, keterangan, highlight, source, created_at, edit_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'app', ?, 0)"
+      "INSERT INTO activities (client_id, pid, tanggal, hari, start_time, finish_time, duration_min, kegiatan, kategori, keterangan, highlight, shift, source, created_at, edit_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'app', ?, 0)"
     )
     .bind(
       clientId, pid, tanggal, hari, startTime, finishTime,
-      dur.duration, kegiatan, kategori, keterangan, highlight, nowUtc
+      dur.duration, kegiatan, kategori, keterangan, highlight, shift, nowUtc
     )
     .run();
 
@@ -459,6 +490,13 @@ app.patch("/api/activities/:id", async (c) => {
   const keterangan = body.keterangan !== undefined ? (body.keterangan ? body.keterangan.trim() : null) : existing.keterangan;
   const highlight = body.highlight !== undefined ? (body.highlight ? 1 : 0) : existing.highlight;
 
+  let shift = body.shift ?? existing.shift;
+  if (!shift || (shift !== "SHIFT_1" && shift !== "SHIFT_2")) {
+    const [sh, sm] = startTime.split(":").map(Number);
+    const sMin = (sh === 24 ? 0 : sh) * 60 + sm;
+    shift = (sMin >= 450 && sMin < 1170) ? "SHIFT_1" : "SHIFT_2";
+  }
+
   if (!kegiatan) {
     return c.json({ error: "Kegiatan wajib diisi." }, 400);
   }
@@ -472,12 +510,12 @@ app.patch("/api/activities/:id", async (c) => {
 
   await db
     .prepare(
-      "UPDATE activities SET tanggal = ?, hari = ?, start_time = ?, finish_time = ?, duration_min = ?, kegiatan = ?, kategori = ?, keterangan = ?, highlight = ?, updated_at = ?, edit_count = edit_count + 1 WHERE id = ? AND pid = ?"
+      "UPDATE activities SET tanggal = ?, hari = ?, start_time = ?, finish_time = ?, duration_min = ?, kegiatan = ?, kategori = ?, keterangan = ?, highlight = ?, shift = ?, updated_at = ?, edit_count = edit_count + 1 WHERE id = ? AND pid = ?"
     )
     .bind(
       tanggal, hari, startTime, finishTime,
       dur.duration, kegiatan, kategori, keterangan,
-      highlight, nowUtc, id, pid
+      highlight, shift, nowUtc, id, pid
     )
     .run();
 
@@ -547,6 +585,7 @@ app.get("/api/export", async (c) => {
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "500", 10), 1000);
   const afterId = parseInt(url.searchParams.get("after") || "0", 10);
   const targetPid = url.searchParams.get("pid");
+  const shift = url.searchParams.get("shift");
 
   let query = "SELECT * FROM activities WHERE deleted_at IS NULL";
   const params: any[] = [];
@@ -559,6 +598,11 @@ app.get("/api/export", async (c) => {
   } else {
     query += " AND pid = ?";
     params.push(authPid);
+  }
+
+  if (shift && (shift === "SHIFT_1" || shift === "SHIFT_2")) {
+    query += " AND shift = ?";
+    params.push(shift);
   }
 
   if (from && from.trim() !== "") {
@@ -634,6 +678,7 @@ app.get("/api/dashboard/stats", async (c) => {
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
   const targetPid = url.searchParams.get("pid");
+  const shift = url.searchParams.get("shift");
 
   let baseWhere = "deleted_at IS NULL";
   const baseParams: any[] = [];
@@ -653,6 +698,13 @@ app.get("/api/dashboard/stats", async (c) => {
     baseParams.push(authPid);
     boundsWhere += " AND pid = ?";
     boundsParams.push(authPid);
+  }
+
+  if (shift && (shift === "SHIFT_1" || shift === "SHIFT_2")) {
+    baseWhere += " AND shift = ?";
+    baseParams.push(shift);
+    boundsWhere += " AND shift = ?";
+    boundsParams.push(shift);
   }
 
   if (from && from.trim() !== "") {

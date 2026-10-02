@@ -2,6 +2,8 @@ export type PIDType = "AGSB" | "MUKB" | "IKJA" | "AHIK";
 
 export type DayName = "Senin" | "Selasa" | "Rabu" | "Kamis" | "Jumat" | "Sabtu" | "Minggu";
 
+export type ShiftType = "SHIFT_1" | "SHIFT_2";
+
 export interface PIDInfo {
   pid: PIDType;
   display_name: string;
@@ -22,6 +24,7 @@ export interface Activity {
   kategori: string | null;
   keterangan: string | null;
   highlight: number; // 0 or 1
+  shift?: ShiftType;
   source: "app" | "import";
   import_id: string | null;
   created_at: string;
@@ -39,6 +42,7 @@ export interface ActivityDefaults {
   shift_date_reason?: string;
   calendar_tanggal: string;
   calendar_hari: DayName;
+  shift?: ShiftType;
   last_activity?: Activity | null;
 }
 
