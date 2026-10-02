@@ -15,6 +15,11 @@ const CATEGORY_HEX_COLORS: Record<string, string> = {
   support: "#06b6d4", // cyan-500
   mobilitas: "#f59e0b", // amber-500
   meeting: "#a855f7", // purple-500
+  istirahat: "#f97316", // orange-500
+  project: "#4f46e5", // indigo-600
+  training: "#14b8a6", // teal-500
+  cuti: "#94a3b8", // slate-400
+  improvement: "#84cc16", // lime-500
   default: "#64748b" // slate-500
 };
 

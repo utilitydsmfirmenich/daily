@@ -54,6 +54,11 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; bar: string; b
   support: { bg: "bg-cyan-500/10", text: "text-cyan-400", bar: "bg-cyan-500", border: "border-cyan-500/30" },
   mobilitas: { bg: "bg-amber-500/10", text: "text-amber-400", bar: "bg-amber-500", border: "border-amber-500/30" },
   meeting: { bg: "bg-purple-500/10", text: "text-purple-400", bar: "bg-purple-500", border: "border-purple-500/30" },
+  istirahat: { bg: "bg-orange-500/10", text: "text-orange-400", bar: "bg-orange-500", border: "border-orange-500/30" },
+  project: { bg: "bg-indigo-500/10", text: "text-indigo-300", bar: "bg-indigo-600", border: "border-indigo-500/30" },
+  training: { bg: "bg-teal-500/10", text: "text-teal-400", bar: "bg-teal-500", border: "border-teal-500/30" },
+  cuti: { bg: "bg-slate-500/10", text: "text-slate-300", bar: "bg-slate-400", border: "border-slate-500/30" },
+  improvement: { bg: "bg-lime-500/10", text: "text-lime-400", bar: "bg-lime-500", border: "border-lime-500/30" },
   default: { bg: "bg-slate-700/30", text: "text-slate-300", bar: "bg-slate-500", border: "border-slate-600/50" }
 };
 

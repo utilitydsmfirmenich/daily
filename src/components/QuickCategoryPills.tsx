@@ -50,6 +50,36 @@ export const STANDARD_CATEGORIES: CategoryOption[] = [
     label: "Meeting",
     activeColorClass: "border-sky-500 bg-sky-600 text-white font-bold shadow-sm shadow-sky-500/30",
     inactiveColorClass: "border-slate-700 bg-slate-800/90 text-slate-300 hover:border-sky-500/60 hover:text-sky-300 hover:bg-sky-600/10"
+  },
+  {
+    name: "Istirahat",
+    label: "Istirahat",
+    activeColorClass: "border-orange-500 bg-orange-600 text-white font-bold shadow-sm shadow-orange-500/30",
+    inactiveColorClass: "border-slate-700 bg-slate-800/90 text-slate-300 hover:border-orange-500/60 hover:text-orange-300 hover:bg-orange-600/10"
+  },
+  {
+    name: "Project",
+    label: "Project",
+    activeColorClass: "border-indigo-500 bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-500/30",
+    inactiveColorClass: "border-slate-700 bg-slate-800/90 text-slate-300 hover:border-indigo-500/60 hover:text-indigo-300 hover:bg-indigo-600/10"
+  },
+  {
+    name: "Training",
+    label: "Training",
+    activeColorClass: "border-teal-500 bg-teal-600 text-white font-bold shadow-sm shadow-teal-500/30",
+    inactiveColorClass: "border-slate-700 bg-slate-800/90 text-slate-300 hover:border-teal-500/60 hover:text-teal-300 hover:bg-teal-600/10"
+  },
+  {
+    name: "Cuti",
+    label: "Cuti",
+    activeColorClass: "border-slate-400 bg-slate-600 text-white font-bold shadow-sm shadow-slate-500/30",
+    inactiveColorClass: "border-slate-700 bg-slate-800/90 text-slate-300 hover:border-slate-400/60 hover:text-slate-200 hover:bg-slate-600/10"
+  },
+  {
+    name: "Improvement",
+    label: "Improvement",
+    activeColorClass: "border-lime-500 bg-lime-600 text-white font-bold shadow-sm shadow-lime-500/30",
+    inactiveColorClass: "border-slate-700 bg-slate-800/90 text-slate-300 hover:border-lime-500/60 hover:text-lime-300 hover:bg-lime-600/10"
   }
 ];
 

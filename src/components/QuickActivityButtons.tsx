@@ -2,8 +2,6 @@ import React, { useState, useMemo } from "react";
 import { 
   MessageSquare, 
   Footprints, 
-  Coffee, 
-  PauseCircle, 
   Moon,
   Gauge,
   ClipboardList,
@@ -19,7 +17,8 @@ import {
   Users,
   Search,
   X,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Utensils
 } from "lucide-react";
 
 export interface QuickActivityItem {
@@ -44,6 +43,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "cek-level-air",
     label: "Cek Level Air",
     kegiatan: "Cek level air",
+    kategori: "Operational",
     group: "Operasional & Utilitas",
     icon: <Gauge className="w-3.5 h-3.5 text-cyan-400" />,
     colorClass: "hover:border-cyan-500/60 hover:bg-cyan-600/10 text-cyan-300",
@@ -53,6 +53,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "pencatatan-harian",
     label: "Pencatatan Harian",
     kegiatan: "Pencatatan harian",
+    kategori: "Operational",
     group: "Operasional & Utilitas",
     icon: <ClipboardList className="w-3.5 h-3.5 text-blue-400" />,
     colorClass: "hover:border-blue-500/60 hover:bg-blue-600/10 text-blue-300",
@@ -62,6 +63,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "isi-solar",
     label: "Isi Solar",
     kegiatan: "Isi solar",
+    kategori: "Operational",
     group: "Operasional & Utilitas",
     icon: <Fuel className="w-3.5 h-3.5 text-amber-400" />,
     colorClass: "hover:border-amber-500/60 hover:bg-amber-600/10 text-amber-300",
@@ -73,6 +75,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "sampling-demin",
     label: "Sampling Demin",
     kegiatan: "Sampling demin",
+    kategori: "Operational",
     group: "Water Treatment",
     icon: <FlaskConical className="w-3.5 h-3.5 text-sky-400" />,
     colorClass: "hover:border-sky-500/60 hover:bg-sky-600/10 text-sky-300",
@@ -82,6 +85,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "regen-demin",
     label: "Regen Demin",
     kegiatan: "Regen demin",
+    kategori: "Operational",
     group: "Water Treatment",
     icon: <FlaskConical className="w-3.5 h-3.5 text-teal-400" />,
     colorClass: "hover:border-teal-500/60 hover:bg-teal-600/10 text-teal-300"
@@ -90,6 +94,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "regen-softener",
     label: "Regen Softener",
     kegiatan: "Regen softener",
+    kategori: "Operational",
     group: "Water Treatment",
     icon: <FlaskConical className="w-3.5 h-3.5 text-teal-400" />,
     colorClass: "hover:border-teal-500/60 hover:bg-teal-600/10 text-teal-300"
@@ -100,6 +105,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "start-chiller-wash-oil",
     label: "Start Chiller Wash Oil",
     kegiatan: "Start chiller wash oil",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-emerald-400" />,
     colorClass: "hover:border-emerald-500/60 hover:bg-emerald-600/10 text-emerald-300"
@@ -108,6 +114,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "start-chiller-emulsi",
     label: "Start Chiller Emulsi",
     kegiatan: "Start chiller emulsi",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-emerald-400" />,
     colorClass: "hover:border-emerald-500/60 hover:bg-emerald-600/10 text-emerald-300"
@@ -116,6 +123,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "start-chiller-cooling-patchouly",
     label: "Start Chiller Cooling Patchouly",
     kegiatan: "Start chiller cooling patchouly",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-emerald-400" />,
     colorClass: "hover:border-emerald-500/60 hover:bg-emerald-600/10 text-emerald-300"
@@ -124,6 +132,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "start-chiller-vacuum-patchouly",
     label: "Start Chiller Vacuum Patchouly",
     kegiatan: "Start chiller vacuum patchouly",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-emerald-400" />,
     colorClass: "hover:border-emerald-500/60 hover:bg-emerald-600/10 text-emerald-300"
@@ -134,6 +143,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "stop-chiller-wash-oil",
     label: "Stop Chiller Wash Oil",
     kegiatan: "Stop chiller wash oil",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-rose-400" />,
     colorClass: "hover:border-rose-500/60 hover:bg-rose-600/10 text-rose-300"
@@ -142,6 +152,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "stop-chiller-emulsi",
     label: "Stop Chiller Emulsi",
     kegiatan: "Stop chiller emulsi",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-rose-400" />,
     colorClass: "hover:border-rose-500/60 hover:bg-rose-600/10 text-rose-300"
@@ -150,6 +161,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "stop-chiller-cooling-patchouly",
     label: "Stop Chiller Cooling Patchouly",
     kegiatan: "Stop chiller cooling patchouly",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-rose-400" />,
     colorClass: "hover:border-rose-500/60 hover:bg-rose-600/10 text-rose-300"
@@ -158,6 +170,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "stop-chiller-vacuum-patchouly",
     label: "Stop Chiller Vacuum Patchouly",
     kegiatan: "Stop chiller vacuum patchouly",
+    kategori: "Operational",
     group: "Chiller",
     icon: <Snowflake className="w-3.5 h-3.5 text-rose-400" />,
     colorClass: "hover:border-rose-500/60 hover:bg-rose-600/10 text-rose-300"
@@ -168,6 +181,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "start-boiler-shallot",
     label: "Start Up Boiler Shallot",
     kegiatan: "Start up boiler shallot",
+    kategori: "Operational",
     group: "Boiler",
     icon: <Flame className="w-3.5 h-3.5 text-orange-400" />,
     colorClass: "hover:border-orange-500/60 hover:bg-orange-600/10 text-orange-300"
@@ -176,6 +190,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "start-boiler-patchouly",
     label: "Start Up Boiler Patchouly",
     kegiatan: "Start up boiler patchouly",
+    kategori: "Operational",
     group: "Boiler",
     icon: <Flame className="w-3.5 h-3.5 text-orange-400" />,
     colorClass: "hover:border-orange-500/60 hover:bg-orange-600/10 text-orange-300"
@@ -186,6 +201,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "unloading-pg",
     label: "Unloading PG",
     kegiatan: "Unloading PG",
+    kategori: "Operational",
     group: "Kimia & Gas",
     icon: <Truck className="w-3.5 h-3.5 text-indigo-400" />,
     colorClass: "hover:border-indigo-500/60 hover:bg-indigo-600/10 text-indigo-300"
@@ -194,6 +210,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "unloading-dpg",
     label: "Unloading DPG",
     kegiatan: "Unloading DPG",
+    kategori: "Operational",
     group: "Kimia & Gas",
     icon: <Truck className="w-3.5 h-3.5 text-indigo-400" />,
     colorClass: "hover:border-indigo-500/60 hover:bg-indigo-600/10 text-indigo-300"
@@ -202,6 +219,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "ganti-tabung-qc-tth",
     label: "Ganti Tabung QC TTH",
     kegiatan: "Ganti tabung QC TTH",
+    kategori: "Operational",
     group: "Kimia & Gas",
     icon: <Cylinder className="w-3.5 h-3.5 text-purple-400" />,
     colorClass: "hover:border-purple-500/60 hover:bg-purple-600/10 text-purple-300"
@@ -210,6 +228,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "ganti-tabung-qc-pnb",
     label: "Ganti Tabung QC PNB",
     kegiatan: "Ganti tabung QC PNB",
+    kategori: "Operational",
     group: "Kimia & Gas",
     icon: <Cylinder className="w-3.5 h-3.5 text-purple-400" />,
     colorClass: "hover:border-purple-500/60 hover:bg-purple-600/10 text-purple-300"
@@ -218,6 +237,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "ganti-tabung-prod-pnb",
     label: "Ganti Tabung Prod PNB",
     kegiatan: "Ganti tabung Prod PNB",
+    kategori: "Operational",
     group: "Kimia & Gas",
     icon: <Cylinder className="w-3.5 h-3.5 text-purple-400" />,
     colorClass: "hover:border-purple-500/60 hover:bg-purple-600/10 text-purple-300"
@@ -228,6 +248,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "support-produksi-tth",
     label: "Support Produksi TTH",
     kegiatan: "Support produksi TTH",
+    kategori: "Support",
     group: "Support Produksi",
     icon: <Factory className="w-3.5 h-3.5 text-pink-400" />,
     colorClass: "hover:border-pink-500/60 hover:bg-pink-600/10 text-pink-300"
@@ -236,6 +257,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "support-produksi-pnb",
     label: "Support Produksi PNB",
     kegiatan: "Support produksi PNB",
+    kategori: "Support",
     group: "Support Produksi",
     icon: <Factory className="w-3.5 h-3.5 text-pink-400" />,
     colorClass: "hover:border-pink-500/60 hover:bg-pink-600/10 text-pink-300"
@@ -246,6 +268,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "pm",
     label: "PM",
     kegiatan: "PM ",
+    kategori: "Preventive",
     group: "Maintenance & Proyek",
     icon: <Wrench className="w-3.5 h-3.5 text-yellow-400" />,
     colorClass: "hover:border-yellow-500/60 hover:bg-yellow-600/10 text-yellow-300"
@@ -254,6 +277,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "troubleshooting",
     label: "Troubleshooting",
     kegiatan: "Troubleshooting ",
+    kategori: "Corrective",
     group: "Maintenance & Proyek",
     icon: <Wrench className="w-3.5 h-3.5 text-red-400" />,
     colorClass: "hover:border-red-500/60 hover:bg-red-600/10 text-red-300"
@@ -262,6 +286,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "supervisi-project",
     label: "Supervisi Project",
     kegiatan: "Supervisi project ",
+    kategori: "Project",
     group: "Maintenance & Proyek",
     icon: <HardHat className="w-3.5 h-3.5 text-amber-400" />,
     colorClass: "hover:border-amber-500/60 hover:bg-amber-600/10 text-amber-300"
@@ -270,6 +295,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "survey-vendor",
     label: "Survey Vendor",
     kegiatan: "Survey vendor ",
+    kategori: "Support",
     group: "Maintenance & Proyek",
     icon: <Users className="w-3.5 h-3.5 text-lime-400" />,
     colorClass: "hover:border-lime-500/60 hover:bg-lime-600/10 text-lime-300"
@@ -280,6 +306,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "briefing",
     label: "Briefing",
     kegiatan: "Briefing",
+    kategori: "Meeting",
     group: "Rutin & Istirahat",
     icon: <MessageSquare className="w-3.5 h-3.5 text-blue-400" />,
     colorClass: "hover:border-blue-500/60 hover:bg-blue-600/10 text-blue-300",
@@ -289,26 +316,19 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "berjalan",
     label: "Berjalan",
     kegiatan: "Berjalan ke ",
+    kategori: "Mobilitas",
     group: "Rutin & Istirahat",
     icon: <Footprints className="w-3.5 h-3.5 text-emerald-400" />,
     colorClass: "hover:border-emerald-500/60 hover:bg-emerald-600/10 text-emerald-300",
     isFavorite: true
   },
   {
-    id: "istirahat",
-    label: "Istirahat",
-    kegiatan: "Istirahat",
+    id: "makan",
+    label: "Makan",
+    kegiatan: "Makan",
+    kategori: "Istirahat",
     group: "Rutin & Istirahat",
-    icon: <Coffee className="w-3.5 h-3.5 text-amber-400" />,
-    colorClass: "hover:border-amber-500/60 hover:bg-amber-600/10 text-amber-300",
-    isFavorite: true
-  },
-  {
-    id: "break",
-    label: "Break",
-    kegiatan: "Break",
-    group: "Rutin & Istirahat",
-    icon: <PauseCircle className="w-3.5 h-3.5 text-orange-400" />,
+    icon: <Utensils className="w-3.5 h-3.5 text-orange-400" />,
     colorClass: "hover:border-orange-500/60 hover:bg-orange-600/10 text-orange-300",
     isFavorite: true
   },
@@ -316,6 +336,7 @@ export const ALL_QUICK_ACTIVITIES: QuickActivityItem[] = [
     id: "solat",
     label: "Solat",
     kegiatan: "Solat",
+    kategori: "Istirahat",
     group: "Rutin & Istirahat",
     icon: <Moon className="w-3.5 h-3.5 text-purple-400" />,
     colorClass: "hover:border-purple-500/60 hover:bg-purple-600/10 text-purple-300",
