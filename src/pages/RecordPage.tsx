@@ -8,7 +8,8 @@ import {
   formatDurationHuman, 
   formatDateToIndonesian, 
   getCurrentWIB,
-  addMinutesToTime 
+  addMinutesToTime,
+  determineShiftAutomatically 
 } from "../lib/time-utils";
 import { Activity, ActivityDefaults, DayName, ShiftType } from "../types";
 import { QuickActivityButtons } from "../components/QuickActivityButtons";
@@ -183,18 +184,13 @@ export const RecordPage: React.FC = () => {
     localStorage.setItem(draftKey, JSON.stringify(draft));
   }, [tanggal, hari, shift, startTime, finishTime, kegiatan, kategori, keterangan, highlight, isShiftActive]);
 
-  // Auto-detect shift when startTime changes (operator can still manually override)
+  // Auto-detect shift when startTime changes based on DSM rules and previous activity
   const handleStartTimeChange = (newStartTime: string) => {
     setStartTime(newStartTime);
     if (newStartTime && newStartTime.includes(":")) {
-      const [sh, sm] = newStartTime.split(":").map(Number);
-      if (!isNaN(sh) && !isNaN(sm)) {
-        const sMin = (sh === 24 ? 0 : sh) * 60 + sm;
-        // Shift 1: 07:30 (450) s/d 19:29 (1169)
-        // Shift 2: 19:30 (1170) s/d 07:29 (449)
-        const autoShift: ShiftType = (sMin >= 450 && sMin < 1170) ? "SHIFT_1" : "SHIFT_2";
-        setShift(autoShift);
-      }
+      const lastAct = todayActivities.length > 0 ? todayActivities[todayActivities.length - 1] : null;
+      const autoShift = determineShiftAutomatically(newStartTime, lastAct?.shift, lastAct?.finish_time);
+      setShift(autoShift);
     }
   };
 
@@ -214,17 +210,23 @@ export const RecordPage: React.FC = () => {
     setTanggal(newDate);
     if (newDate) {
       setHari(getDayFromDate(newDate));
+      // Jika operator memilih tanggal masa lalu, kosongkan finishTime jika masih berisi jam server sekarang
+      // untuk mencegah false alert "Durasi lewat tengah malam melebihi 12 jam"
+      if (newDate < liveWib.isoDate) {
+        if (finishTime === liveWib.timeStr || !calculateDuration(startTime, finishTime).isValid) {
+          setFinishTime("");
+        }
+      }
     }
   };
 
-  // Load activities for current selected date & shift
-  const loadTodayActivities = async (targetDate?: string, targetShift?: ShiftType) => {
+  // Load activities for current selected date (unified Shift 1 & Shift 2)
+  const loadTodayActivities = async (targetDate?: string) => {
     const d = targetDate || tanggal;
-    const s = targetShift || shift;
     if (!d) return;
     setLoadingTodayActivities(true);
     try {
-      const res = await api.getActivities({ from: d, to: d, shift: s });
+      const res = await api.getActivities({ from: d, to: d });
       setTodayActivities(res.activities || []);
     } catch {
       // ignore
@@ -235,9 +237,9 @@ export const RecordPage: React.FC = () => {
 
   useEffect(() => {
     if (tanggal) {
-      loadTodayActivities(tanggal, shift);
+      loadTodayActivities(tanggal);
     }
-  }, [tanggal, shift]);
+  }, [tanggal]);
 
   // Edit Activity Handlers
   const handleStartEdit = (act: Activity) => {
@@ -397,10 +399,10 @@ export const RecordPage: React.FC = () => {
     setExportingToday(true);
     try {
       const targetDate = defaults?.is_shift_date && isShiftActive ? defaults.tanggal : tanggal;
-      const activities = await api.getExportData(targetDate, targetDate, user.pid, shift);
+      const activities = await api.getExportData(targetDate, targetDate, user.pid);
 
       if (!activities || activities.length === 0) {
-        setErrorMessage(`Belum ada catatan kegiatan untuk tanggal/shift ${formatDateToIndonesian(targetDate)}.`);
+        setErrorMessage(`Belum ada catatan kegiatan untuk tanggal ${formatDateToIndonesian(targetDate)}.`);
         setTimeout(() => setErrorMessage(null), 5000);
         return;
       }
@@ -410,8 +412,7 @@ export const RecordPage: React.FC = () => {
         durationFormat: "minutes"
       });
 
-      const shiftLabel = shift === "SHIFT_1" ? "shift_1" : "shift_2";
-      const filename = `pencatatan_kegiatan_${user.pid}_${targetDate}_${shiftLabel}.xlsx`;
+      const filename = `pencatatan_kegiatan_${user.pid}_${targetDate}.xlsx`;
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -455,11 +456,16 @@ export const RecordPage: React.FC = () => {
     setSubmitting(true);
 
     try {
+      // Auto-assign shift based on startTime and previous activity context
+      const lastAct = todayActivities.length > 0 ? todayActivities[todayActivities.length - 1] : null;
+      const targetShift = determineShiftAutomatically(startTime, lastAct?.shift, lastAct?.finish_time);
+      setShift(targetShift);
+
       const res = await api.createActivity({
         client_id: crypto.randomUUID(),
         tanggal,
         hari,
-        shift,
+        shift: targetShift,
         start_time: startTime,
         finish_time: finishTime,
         kegiatan: kegiatan.trim(),
@@ -475,6 +481,8 @@ export const RecordPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 5000);
 
       // Setup next chain: Start = previous Finish!
+      let nextTanggal = tanggal;
+      let nextHari = hari;
       if (finishTime === "24:00") {
         setStartTime("00:00");
         // Advance tanggal and hari to the next day
@@ -483,9 +491,10 @@ export const RecordPage: React.FC = () => {
         const ny = nextDt.getUTCFullYear();
         const nm = String(nextDt.getUTCMonth() + 1).padStart(2, "0");
         const nd = String(nextDt.getUTCDate()).padStart(2, "0");
-        const nextIso = `${ny}-${nm}-${nd}`;
-        setTanggal(nextIso);
-        setHari(getDayFromDate(nextIso));
+        nextTanggal = `${ny}-${nm}-${nd}`;
+        nextHari = getDayFromDate(nextTanggal);
+        setTanggal(nextTanggal);
+        setHari(nextHari);
       } else {
         setStartTime(finishTime);
       }
@@ -493,13 +502,28 @@ export const RecordPage: React.FC = () => {
       setKeterangan("");
       setHighlight(false);
 
-      // Re-fetch defaults for next entry
-      const defs = await api.getDefaults();
-      setDefaults(defs);
-      setFinishTime(defs.finish_time);
+      // Check if we are logging past dates or backdating
+      const isPastDate = nextTanggal < liveWib.isoDate;
+
+      if (isPastDate) {
+        // Jangan timpa finishTime dengan jam server sekarang jika mencatat tanggal masa lalu
+        // Biarkan kosong agar operator dapat mengisi jam selesai kegiatan berikutnya atau memilih durasi cepat
+        setFinishTime("");
+      } else {
+        // Jika tanggal hari ini, hanya isi jam server jika durasi valid dan tidak terjadi rollover > 12 jam
+        const defs = await api.getDefaults();
+        setDefaults(defs);
+        const nextStart = finishTime === "24:00" ? "00:00" : finishTime;
+        const durWithLive = calculateDuration(nextStart, defs.finish_time);
+        if (durWithLive.isValid && !durWithLive.isMidnightRollover) {
+          setFinishTime(defs.finish_time);
+        } else {
+          setFinishTime("");
+        }
+      }
 
       // Reload today's activities preview table
-      await loadTodayActivities(finishTime === "24:00" ? tanggal : tanggal);
+      await loadTodayActivities(nextTanggal);
 
       kegiatanInputRef.current?.focus();
     } catch (err: any) {
@@ -600,9 +624,9 @@ export const RecordPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
-          {/* Row 1: Tanggal, Hari, & Pilihan Shift */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-            <div className="sm:col-span-4">
+          {/* Row 1: Tanggal & Hari */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Tanggal (dd/mm/yyyy)
               </label>
@@ -616,7 +640,7 @@ export const RecordPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="sm:col-span-3">
+            <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Hari
               </label>
@@ -631,44 +655,6 @@ export const RecordPage: React.FC = () => {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div className="sm:col-span-5">
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Shift Kerja
-                </label>
-                <span className="text-[10px] text-slate-400">
-                  (Otomatis / Manual)
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShift("SHIFT_1")}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition ${
-                    shift === "SHIFT_1"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-sm shadow-amber-500/10 ring-1 ring-amber-500/40"
-                      : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
-                  }`}
-                >
-                  <Sun className={`w-3.5 h-3.5 ${shift === "SHIFT_1" ? "text-amber-400" : "text-slate-500"}`} />
-                  <span>Shift 1 (Pagi)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShift("SHIFT_2")}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition ${
-                    shift === "SHIFT_2"
-                      ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/60 shadow-sm shadow-indigo-500/10 ring-1 ring-indigo-500/40"
-                      : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
-                  }`}
-                >
-                  <Moon className={`w-3.5 h-3.5 ${shift === "SHIFT_2" ? "text-indigo-400" : "text-slate-500"}`} />
-                  <span>Shift 2 (Malam)</span>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -737,9 +723,23 @@ export const RecordPage: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500">
-                  {durationResult.isValid ? `(${durationResult.durationMin} menit)` : "Menunggu waktu valid"}
-                </span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[10px] text-slate-500">
+                    {durationResult.isValid ? `(${durationResult.durationMin} mnt)` : "Menunggu waktu"}
+                  </span>
+                  <span className="text-slate-600">•</span>
+                  {shift === "SHIFT_2" ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-300 px-1.5 py-0.2 rounded bg-indigo-500/20 border border-indigo-500/30">
+                      <Moon className="w-2.5 h-2.5 text-indigo-400" />
+                      <span>Shift 2</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/30">
+                      <Sun className="w-2.5 h-2.5 text-amber-400" />
+                      <span>Shift 1</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

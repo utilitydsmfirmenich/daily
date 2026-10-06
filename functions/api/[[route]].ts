@@ -23,7 +23,20 @@ async function ensureTables(db: D1Database) {
     await db.prepare("CREATE TABLE IF NOT EXISTS pids (pid TEXT PRIMARY KEY, display_name TEXT, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
     await db.prepare("INSERT INTO pids (pid, display_name) VALUES ('AGSB', 'Agus Sobarna (AGSB)'), ('MUKB', 'Muhammad Dimas F A (MUKB)'), ('IKJA', 'Diki Jaelani (IKJA)'), ('AHIK', 'Ahmad Abdul Malik (AHIK)') ON CONFLICT(pid) DO UPDATE SET display_name = excluded.display_name").run();
     await db.prepare("CREATE TABLE IF NOT EXISTS import_batches (id TEXT PRIMARY KEY, pid TEXT NOT NULL, filename TEXT, rows_read INTEGER NOT NULL DEFAULT 0, rows_inserted INTEGER NOT NULL DEFAULT 0, rows_skipped INTEGER NOT NULL DEFAULT 0, rows_rejected INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, undone_at TEXT)").run();
-    await db.prepare("CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT NOT NULL UNIQUE, pid TEXT NOT NULL, tanggal TEXT NOT NULL, hari TEXT NOT NULL, start_time TEXT NOT NULL, finish_time TEXT NOT NULL, duration_min INTEGER NOT NULL, kegiatan TEXT NOT NULL, kategori TEXT, keterangan TEXT, highlight INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'app', import_id TEXT, created_at TEXT NOT NULL, updated_at TEXT, edit_count INTEGER NOT NULL DEFAULT 0, deleted_at TEXT)").run();
+    await db.prepare("CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT NOT NULL UNIQUE, pid TEXT NOT NULL, tanggal TEXT NOT NULL, hari TEXT NOT NULL, start_time TEXT NOT NULL, finish_time TEXT NOT NULL, duration_min INTEGER NOT NULL, kegiatan TEXT NOT NULL, kategori TEXT, keterangan TEXT, highlight INTEGER NOT NULL DEFAULT 0, shift TEXT DEFAULT 'SHIFT_1', source TEXT NOT NULL DEFAULT 'app', import_id TEXT, created_at TEXT NOT NULL, updated_at TEXT, edit_count INTEGER NOT NULL DEFAULT 0, deleted_at TEXT)").run();
+    
+    // Auto-migrate shift column if existing table was created without it
+    try {
+      await db.prepare("ALTER TABLE activities ADD COLUMN shift TEXT DEFAULT 'SHIFT_1'").run();
+    } catch {
+      // Column already exists, ignore
+    }
+    try {
+      await db.prepare("UPDATE activities SET shift = CASE WHEN start_time >= '07:30' AND start_time < '19:30' THEN 'SHIFT_1' ELSE 'SHIFT_2' END WHERE shift IS NULL OR shift = ''").run();
+    } catch {
+      // Ignore if fails
+    }
+
     await db.prepare("CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT NOT NULL, attempted_at TEXT NOT NULL, success INTEGER NOT NULL)").run();
     dbInitialized = true;
   } catch (err) {
@@ -438,7 +451,7 @@ app.post("/api/activities", async (c) => {
   if (!shift || (shift !== "SHIFT_1" && shift !== "SHIFT_2")) {
     const [sh, sm] = startTime.split(":").map(Number);
     const sMin = (sh === 24 ? 0 : sh) * 60 + sm;
-    shift = (sMin >= 450 && sMin < 1170) ? "SHIFT_1" : "SHIFT_2";
+    shift = (sMin >= 360 && sMin < 1155) ? "SHIFT_1" : "SHIFT_2";
   }
 
   const kategori = body.kategori ? body.kategori.trim() : null;
@@ -446,23 +459,28 @@ app.post("/api/activities", async (c) => {
   const highlight = body.highlight ? 1 : 0;
   const nowUtc = new Date().toISOString();
 
-  const result = await db
-    .prepare(
-      "INSERT INTO activities (client_id, pid, tanggal, hari, start_time, finish_time, duration_min, kegiatan, kategori, keterangan, highlight, shift, source, created_at, edit_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'app', ?, 0)"
-    )
-    .bind(
-      clientId, pid, tanggal, hari, startTime, finishTime,
-      dur.duration, kegiatan, kategori, keterangan, highlight, shift, nowUtc
-    )
-    .run();
+  try {
+    const result = await db
+      .prepare(
+        "INSERT INTO activities (client_id, pid, tanggal, hari, start_time, finish_time, duration_min, kegiatan, kategori, keterangan, highlight, shift, source, created_at, edit_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'app', ?, 0)"
+      )
+      .bind(
+        clientId, pid, tanggal, hari, startTime, finishTime,
+        dur.duration, kegiatan, kategori, keterangan, highlight, shift, nowUtc
+      )
+      .run();
 
-  const newId = result.meta.last_row_id;
-  const inserted = await db
-    .prepare("SELECT * FROM activities WHERE id = ?")
-    .bind(newId)
-    .first<any>();
+    const newId = result.meta.last_row_id;
+    const inserted = await db
+      .prepare("SELECT * FROM activities WHERE id = ?")
+      .bind(newId)
+      .first<any>();
 
-  return c.json({ activity: inserted });
+    return c.json({ activity: inserted });
+  } catch (err: any) {
+    console.error("Gagal insert activity:", err);
+    return c.json({ error: err.message || "Gagal menyimpan kegiatan ke database." }, 500);
+  }
 });
 
 // PATCH /api/activities/:id

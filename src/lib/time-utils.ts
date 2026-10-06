@@ -1,4 +1,4 @@
-import { DayName } from "../types";
+import { DayName, ShiftType } from "../types";
 
 export const INDONESIAN_DAYS: DayName[] = [
   "Minggu",
@@ -334,6 +334,56 @@ export function calculateActivityShiftBreakdown(startTime: string, finishTime: s
       overtime_min: ot + (startMin >= 330 && startMin < 510 ? remainder : 0),
       total_min: totalMin
     };
+  }
+}
+
+/**
+ * Otomatis menentukan shift (Shift 1 atau Shift 2) berdasarkan jam dan alur kegiatan sebelumnya.
+ * Aturan DSM-Firmenich Utility:
+ * - Shift 1: 07:30 - 20:30 (hari yang sama)
+ * - Shift 2: 19:30 malam s/d 08:30 pagi hari berikutnya
+ * - Kelebihan jam (datang lebih awal atau pulang lebih akhir/lembur) tetap diakui pada shift tersebut.
+ */
+export function determineShiftAutomatically(
+  startTime: string,
+  previousShift?: ShiftType | null,
+  previousFinishTime?: string | null
+): ShiftType {
+  const norm = normalizeTimeString(startTime);
+  if (!norm) return "SHIFT_1";
+
+  const [h, m] = norm.split(":").map(Number);
+  const min = (h === 24 ? 0 : h) * 60 + m;
+
+  // 1. Chained Context: Jika melanjutkan dari kegiatan sebelumnya yang berdekatan (gap <= 3 jam)
+  if (previousShift && previousFinishTime) {
+    const prevNorm = normalizeTimeString(previousFinishTime);
+    if (prevNorm) {
+      const [ph, pm] = prevNorm.split(":").map(Number);
+      const prevMin = (ph === 24 ? 0 : ph) * 60 + pm;
+      const gap = (min >= prevMin) ? (min - prevMin) : (min + 1440 - prevMin);
+
+      if (gap <= 180) {
+        // Jika sebelumnya Shift 1 dan sekarang belum lewat jam 22:30 (1350 menit): tetap Shift 1 (lembur)
+        if (previousShift === "SHIFT_1" && min >= 450 && min <= 1350) {
+          return "SHIFT_1";
+        }
+        // Jika sebelumnya Shift 2 dan sekarang masih pagi (dini hari s/d jam 10:00 / 600 menit): tetap Shift 2 (lembur)
+        if (previousShift === "SHIFT_2" && (min >= 1140 || min <= 600)) {
+          return "SHIFT_2";
+        }
+      }
+    }
+  }
+
+  // 2. Standalone / Initial Activity Time Windows:
+  // - Shift 1: Datang awal (06:00 = 360) s/d malam sebelum jam 19:15 (1155) -> SHIFT_1
+  // - Shift 2: Datang awal malam (19:15 = 1155) s/d malam 23:59 -> SHIFT_2
+  // - Shift 2 Dini Hari: 00:00 s/d pagi 06:00 (360) -> SHIFT_2
+  if (min >= 360 && min < 1155) {
+    return "SHIFT_1";
+  } else {
+    return "SHIFT_2";
   }
 }
 

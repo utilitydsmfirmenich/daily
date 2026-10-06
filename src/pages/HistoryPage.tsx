@@ -118,24 +118,45 @@ export const HistoryPage: React.FC = () => {
     setToDate("");
   };
 
-  // Group activities by Shift block: key = `${tanggal}_${shift}`
-  const groupedByShift = useMemo(() => {
-    const map = new Map<string, { key: string; tanggal: string; hari: string; shift: ShiftType; items: Activity[]; totalMin: number }>();
+  // Group activities by Date: key = `${tanggal}` (Shift 1 & Shift 2 disatukan)
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, {
+      key: string;
+      tanggal: string;
+      hari: string;
+      items: Activity[];
+      totalMin: number;
+      shift1Min: number;
+      shift2Min: number;
+    }>();
+
     for (const act of activities) {
-      const actShift: ShiftType = act.shift || (act.start_time >= "07:30" && act.start_time < "19:30" ? "SHIFT_1" : "SHIFT_2");
-      const groupKey = `${act.tanggal}_${actShift}`;
+      const actShift: ShiftType = act.shift || "SHIFT_1";
+      const groupKey = act.tanggal;
       const existing = map.get(groupKey) || {
         key: groupKey,
         tanggal: act.tanggal,
         hari: act.hari,
-        shift: actShift,
         items: [],
-        totalMin: 0
+        totalMin: 0,
+        shift1Min: 0,
+        shift2Min: 0
       };
       existing.items.push(act);
       existing.totalMin += act.duration_min;
+      if (actShift === "SHIFT_2") {
+        existing.shift2Min += act.duration_min;
+      } else {
+        existing.shift1Min += act.duration_min;
+      }
       map.set(groupKey, existing);
     }
+
+    // Sort items chronologically inside each date
+    for (const group of map.values()) {
+      group.items.sort((a, b) => a.id - b.id || a.start_time.localeCompare(b.start_time));
+    }
+
     return Array.from(map.values());
   }, [activities]);
 
@@ -476,39 +497,37 @@ export const HistoryPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {groupedByShift.map((group) => (
+          {groupedByDate.map((group) => (
             <div key={group.key} className="bg-slate-800/90 border border-slate-700 rounded-2xl overflow-hidden shadow-sm">
-              {/* Shift Header Banner */}
-              <div className={`px-4 sm:px-6 py-2.5 flex items-center justify-between border-b ${
-                group.shift === "SHIFT_1"
-                  ? "bg-amber-950/30 border-amber-500/30"
-                  : "bg-indigo-950/30 border-indigo-500/30"
-              }`}>
+              {/* Date Header Banner */}
+              <div className="px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b bg-slate-850/80 border-slate-700">
                 <div className="flex items-center gap-2.5">
-                  {group.shift === "SHIFT_1" ? (
-                    <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                      <Sun className="w-3.5 h-3.5" />
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-                      <Moon className="w-3.5 h-3.5" />
-                    </div>
-                  )}
+                  <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                    <Calendar className="w-4 h-4" />
+                  </div>
                   <div>
-                    <span className={`font-bold text-xs sm:text-sm ${
-                      group.shift === "SHIFT_1" ? "text-amber-300" : "text-indigo-300"
-                    }`}>
-                      {group.shift === "SHIFT_1" ? "Shift 1 (Pagi)" : "Shift 2 (Malam)"}
-                    </span>
-                    <span className="text-slate-300 text-xs sm:text-sm font-semibold ml-2">
-                      — {group.hari}, {formatDateToIndonesian(group.tanggal)}
+                    <span className="font-bold text-xs sm:text-sm text-white">
+                      {group.hari}, {formatDateToIndonesian(group.tanggal)}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[11px] text-slate-400">
                     {group.items.length} tugas
                   </span>
+                  {group.shift1Min > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full font-mono">
+                      <Sun className="w-3 h-3 text-amber-400" />
+                      <span>S1: {formatDurationHuman(group.shift1Min)}</span>
+                    </span>
+                  )}
+                  {group.shift2Min > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full font-mono">
+                      <Moon className="w-3 h-3 text-indigo-400" />
+                      <span>S2: {formatDurationHuman(group.shift2Min)}</span>
+                    </span>
+                  )}
                   <div className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono">
                     Total: {formatDurationHuman(group.totalMin)}
                   </div>
@@ -522,6 +541,7 @@ export const HistoryPage: React.FC = () => {
                     <tr className="bg-slate-900/60 text-slate-300 font-semibold border-b border-slate-700">
                       <th className="py-2.5 px-3 border-r border-slate-700 text-center w-24">Tanggal</th>
                       <th className="py-2.5 px-3 border-r border-slate-700 text-center w-20">Hari</th>
+                      <th className="py-2.5 px-3 border-r border-slate-700 text-center w-20">Shift</th>
                       <th className="py-2.5 px-3 border-r border-slate-700 text-center w-16">Start</th>
                       <th className="py-2.5 px-3 border-r border-slate-700 text-center w-16">Finish</th>
                       <th className="py-2.5 px-3 border-r border-slate-700 text-center w-16">Total</th>
@@ -545,6 +565,19 @@ export const HistoryPage: React.FC = () => {
                         </td>
                         <td className="py-2 px-3 border-r border-slate-700/60 text-center text-slate-300">
                           {act.hari}
+                        </td>
+                        <td className="py-2 px-3 border-r border-slate-700/60 text-center whitespace-nowrap">
+                          {act.shift === "SHIFT_2" ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                              <Moon className="w-2.5 h-2.5 text-indigo-400" />
+                              <span>Shift 2</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                              <Sun className="w-2.5 h-2.5 text-amber-400" />
+                              <span>Shift 1</span>
+                            </span>
+                          )}
                         </td>
                         <td className="py-2 px-3 border-r border-slate-700/60 text-center font-mono font-medium">
                           {act.start_time}
@@ -615,6 +648,17 @@ export const HistoryPage: React.FC = () => {
                   <div key={act.id} className="p-3.5 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
+                        {act.shift === "SHIFT_2" ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                            <Moon className="w-2.5 h-2.5 text-indigo-400" />
+                            <span>S2</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            <Sun className="w-2.5 h-2.5 text-amber-400" />
+                            <span>S1</span>
+                          </span>
+                        )}
                         <span className="font-mono font-bold text-white text-xs">
                           {act.start_time} → {act.finish_time}
                         </span>

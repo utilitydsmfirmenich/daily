@@ -11,7 +11,9 @@ import {
   ArrowRight, 
   Bookmark, 
   Loader2,
-  CalendarCheck2
+  CalendarCheck2,
+  Sun,
+  Moon
 } from "lucide-react";
 
 interface TodayActivitiesTableProps {
@@ -33,7 +35,7 @@ export const TodayActivitiesTable: React.FC<TodayActivitiesTableProps> = ({
   onRefresh,
   className = ""
 }) => {
-  // Sort chronologically (earliest to latest in the shift)
+  // Sort chronologically (earliest to latest in the day)
   const sortedActivities = React.useMemo(() => {
     return [...activities].sort((a, b) => a.id - b.id || a.start_time.localeCompare(b.start_time));
   }, [activities]);
@@ -41,6 +43,19 @@ export const TodayActivitiesTable: React.FC<TodayActivitiesTableProps> = ({
   // Total duration in minutes
   const totalMinutes = React.useMemo(() => {
     return sortedActivities.reduce((sum, item) => sum + (item.duration_min || 0), 0);
+  }, [sortedActivities]);
+
+  // Breakdown by Shift 1 vs Shift 2
+  const shift1Minutes = React.useMemo(() => {
+    return sortedActivities
+      .filter((a) => (a.shift || "SHIFT_1") === "SHIFT_1")
+      .reduce((sum, item) => sum + (item.duration_min || 0), 0);
+  }, [sortedActivities]);
+
+  const shift2Minutes = React.useMemo(() => {
+    return sortedActivities
+      .filter((a) => a.shift === "SHIFT_2")
+      .reduce((sum, item) => sum + (item.duration_min || 0), 0);
   }, [sortedActivities]);
 
   const highlightCount = React.useMemo(() => {
@@ -59,7 +74,7 @@ export const TodayActivitiesTable: React.FC<TodayActivitiesTableProps> = ({
             </h3>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Daftar kegiatan shift ini diurutkan secara kronologis
+            Daftar kegiatan hari ini (Shift 1 & Shift 2 disatukan secara kronologis)
           </p>
         </div>
 
@@ -69,6 +84,20 @@ export const TodayActivitiesTable: React.FC<TodayActivitiesTableProps> = ({
           <span className="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-500/30 text-blue-300 text-xs font-semibold">
             {sortedActivities.length} Kegiatan
           </span>
+
+          {/* Shift 1 & Shift 2 Badges if they exist */}
+          {shift1Minutes > 0 && (
+            <span className="px-2.5 py-1 rounded-lg bg-amber-950/50 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1">
+              <Sun className="w-3 h-3 text-amber-400" />
+              <span>S1: {formatDurationHuman(shift1Minutes)}</span>
+            </span>
+          )}
+          {shift2Minutes > 0 && (
+            <span className="px-2.5 py-1 rounded-lg bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1">
+              <Moon className="w-3 h-3 text-indigo-400" />
+              <span>S2: {formatDurationHuman(shift2Minutes)}</span>
+            </span>
+          )}
 
           {/* Total Duration Badge */}
           <span className="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-xs font-semibold font-mono flex items-center gap-1.5">
@@ -119,6 +148,7 @@ export const TodayActivitiesTable: React.FC<TodayActivitiesTableProps> = ({
             <thead>
               <tr className="border-b border-slate-700 bg-slate-800/90 text-slate-300 font-semibold text-[11px]">
                 <th className="py-2.5 px-3 w-12 text-center">No</th>
+                <th className="py-2.5 px-3 whitespace-nowrap text-center">Shift</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Waktu</th>
                 <th className="py-2.5 px-3 text-center whitespace-nowrap">Durasi</th>
                 <th className="py-2.5 px-3 min-w-[220px]">Kegiatan</th>
@@ -140,6 +170,21 @@ export const TodayActivitiesTable: React.FC<TodayActivitiesTableProps> = ({
                     {/* No */}
                     <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
                       {index + 1}
+                    </td>
+
+                    {/* Shift */}
+                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                      {act.shift === "SHIFT_2" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                          <Moon className="w-2.5 h-2.5 text-indigo-400" />
+                          <span>Shift 2</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          <Sun className="w-2.5 h-2.5 text-amber-400" />
+                          <span>Shift 1</span>
+                        </span>
+                      )}
                     </td>
 
                     {/* Waktu Start - Finish */}
@@ -212,8 +257,8 @@ export const TodayActivitiesTable: React.FC<TodayActivitiesTableProps> = ({
             {/* Table Summary Footer */}
             <tfoot>
               <tr className="bg-slate-850 border-t-2 border-slate-700 text-xs font-semibold text-slate-200">
-                <td colSpan={2} className="py-2.5 px-3 text-slate-400 text-left">
-                  Total Akumulasi Shift:
+                <td colSpan={3} className="py-2.5 px-3 text-slate-400 text-left">
+                  Total Akumulasi Hari Ini:
                 </td>
                 <td className="py-2.5 px-3 text-center font-mono font-bold text-emerald-400 whitespace-nowrap">
                   {totalMinutes} mnt

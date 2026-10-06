@@ -7,7 +7,8 @@ import {
   parseIndonesianDate,
   formatDateToIndonesian,
   addMinutesToTime,
-  formatTimeOnBlur
+  formatTimeOnBlur,
+  determineShiftAutomatically
 } from "../src/lib/time-utils";
 
 describe("time-utils", () => {
@@ -103,4 +104,47 @@ describe("time-utils", () => {
     expect(formatTimeOnBlur("8:30")).toBe("08:30");
     expect(formatTimeOnBlur("8.00")).toBe("08:00");
   });
+
+  describe("determineShiftAutomatically", () => {
+    it("assigns Shift 1 for normal Shift 1 daytime hours", () => {
+      expect(determineShiftAutomatically("07:30")).toBe("SHIFT_1");
+      expect(determineShiftAutomatically("12:00")).toBe("SHIFT_1");
+      expect(determineShiftAutomatically("16:30")).toBe("SHIFT_1");
+      expect(determineShiftAutomatically("18:45")).toBe("SHIFT_1");
+    });
+
+    it("assigns Shift 1 when arriving earlier than 07:30 (e.g. 06:00 - 07:29)", () => {
+      expect(determineShiftAutomatically("06:00")).toBe("SHIFT_1");
+      expect(determineShiftAutomatically("06:45")).toBe("SHIFT_1");
+      expect(determineShiftAutomatically("07:15")).toBe("SHIFT_1");
+    });
+
+    it("keeps Shift 1 if continuing work/overtime past 20:30", () => {
+      // With chained activity from Shift 1
+      expect(determineShiftAutomatically("20:30", "SHIFT_1", "20:00")).toBe("SHIFT_1");
+      expect(determineShiftAutomatically("21:00", "SHIFT_1", "20:30")).toBe("SHIFT_1");
+      expect(determineShiftAutomatically("22:00", "SHIFT_1", "21:30")).toBe("SHIFT_1");
+    });
+
+    it("assigns Shift 2 for evening hours starting at or after 19:15", () => {
+      expect(determineShiftAutomatically("19:15")).toBe("SHIFT_2");
+      expect(determineShiftAutomatically("19:30")).toBe("SHIFT_2");
+      expect(determineShiftAutomatically("20:00")).toBe("SHIFT_2");
+      expect(determineShiftAutomatically("23:30")).toBe("SHIFT_2");
+    });
+
+    it("assigns Shift 2 for midnight and early morning hours (00:00 - 05:59)", () => {
+      expect(determineShiftAutomatically("00:00")).toBe("SHIFT_2");
+      expect(determineShiftAutomatically("01:30")).toBe("SHIFT_2");
+      expect(determineShiftAutomatically("04:45")).toBe("SHIFT_2");
+      expect(determineShiftAutomatically("05:59")).toBe("SHIFT_2");
+    });
+
+    it("keeps Shift 2 if continuing work/overtime into morning past 08:30", () => {
+      // With chained activity from Shift 2
+      expect(determineShiftAutomatically("08:30", "SHIFT_2", "08:00")).toBe("SHIFT_2");
+      expect(determineShiftAutomatically("09:15", "SHIFT_2", "08:30")).toBe("SHIFT_2");
+    });
+  });
 });
+
