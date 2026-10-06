@@ -93,39 +93,30 @@ Hasil build produksi siap deploy akan tersimpan di dalam folder `dist/`.
 
 ---
 
-## 🌐 Panduan Deploy Gratis ke Cloudflare Pages & D1 Database
+## 🌐 Deploy ke Cloudflare (Otomatis via GitHub Actions)
 
-Layanan Cloudflare Pages dan Cloudflare D1 sepenuhnya **GRATIS** dan terhubung otomatis dengan repositori GitHub Anda.
+Aplikasi berjalan sebagai **Cloudflare Worker + static assets** (`wrangler.json`) dengan database **Cloudflare D1** (`log-harian-db`). Setiap `push` ke branch `main` otomatis menjalankan workflow [`deploy.yml`](.github/workflows/deploy.yml): **test → build → `wrangler deploy`**. Jika test atau build gagal, deploy tidak berjalan. Deploy juga bisa dipicu manual dari tab **Actions** > **Deploy to Cloudflare** > **Run workflow**.
 
-### Langkah 1: Buat Database Cloudflare D1
-1. Buka [Cloudflare Dashboard](https://dash.cloudflare.com) dan login (atau daftar gratis).
-2. Di menu navigasi samping, klik **Workers & Pages** > **D1 SQL Database**.
-3. Klik tombol **Create database** > pilih **Dashboard**.
-4. Beri nama database: `log-harian-db` lalu klik **Create**.
+### Setup satu kali
 
-### Langkah 2: Hubungkan Repositori GitHub ke Cloudflare Pages
-1. Di menu navigasi samping Cloudflare, klik **Workers & Pages** > **Create application** > tab **Pages**.
-2. Pilih opsi **Connect to Git** > pilih akun GitHub Anda dan pilih repositori `utilitydsmfirmenich/daily`.
-3. Klik **Begin setup**.
-4. Konfigurasikan pengaturan build sebagai berikut:
-   - **Project name:** `utility-daily` (URL web akan menjadi `https://utility-daily.pages.dev`).
-   - **Production branch:** `main`
-   - **Framework preset:** `Vite`
-   - **Build command:** `npm run build`
-   - **Build output directory:** `dist`
-5. Di bagian **Environment variables (advanced)**, tambahkan:
-   - Variable name: `NODE_VERSION`, Value: `20`
-6. Klik **Save and Deploy**.
+1. **Buat API Token Cloudflare:** Dashboard > My Profile > API Tokens > **Create Token** > template **Edit Cloudflare Workers** (tambahkan izin *D1 Edit* bila diminta).
+2. **Tambahkan secret di GitHub** (repo > Settings > Secrets and variables > Actions):
+   - `CLOUDFLARE_API_TOKEN` = token dari langkah 1
+   - `CLOUDFLARE_ACCOUNT_ID` = ID akun Cloudflare (lihat `npx wrangler whoami`)
+3. **Set secret Gemini (fitur Voice-to-Text)** sekali dari komputer yang sudah `wrangler login`:
+   ```bash
+   npx wrangler secret put GEMINI_API_KEY
+   ```
+   Secret ini tersimpan permanen di Cloudflare dan tidak terhapus oleh deploy berikutnya. Untuk pengembangan lokal, isi `GEMINI_API_KEY` di file `.dev.vars` (sudah di-`.gitignore`).
 
-### Langkah 3: Hubungkan (Binding) Database D1 ke Cloudflare Pages
-1. Setelah deployment pertama selesai, masuk ke halaman proyek Pages Anda (`utility-daily`).
-2. Klik tab **Settings** > pilih **Functions** di bilah kiri.
-3. Gulir ke bawah ke bagian **D1 database bindings** > klik **Add binding**:
-   - **Variable name:** `DB` *(Wajib menggunakan huruf kapital DB)*
-   - **D1 database:** Pilih `log-harian-db` yang telah Anda buat di Langkah 1.
-4. Klik **Save**.
-5. Buka tab **Deployments**, klik titik tiga (⋯) pada deployment terakhir > pilih **Retry deployment** (agar binding database langsung aktif).
-6. Website kini sudah aktif dan live 100% di `https://utility-daily.utility-dsmfirmenich.workers.dev`!
+### Deploy manual (opsional)
+
+```bash
+npm run build
+npm run deploy   # = wrangler deploy
+```
+
+Website live di `https://utility-daily.utility-dsmfirmenich.workers.dev`.
 
 ---
 

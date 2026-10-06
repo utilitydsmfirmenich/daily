@@ -4,6 +4,7 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 export type Bindings = {
   DB: D1Database;
   JWT_SECRET?: string;
+  GEMINI_API_KEY?: string;
 };
 
 export type Variables = {
@@ -1063,6 +1064,179 @@ app.get("/api/import/batches", async (c) => {
     .all<any>();
 
   return c.json({ batches: res.results || [] });
+});
+
+const VALID_CATEGORIES = [
+  "Admin",
+  "Operational",
+  "Preventive",
+  "Corrective",
+  "Support",
+  "Mobilitas",
+  "Meeting",
+  "Istirahat",
+  "Project",
+  "Training",
+  "Cuti",
+  "Improvement"
+] as const;
+
+// POST /api/voice/transcribe
+app.post("/api/voice/transcribe", async (c) => {
+  const apiKey = c.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return c.json(
+      {
+        error:
+          "Kunci API Gemini belum dikonfigurasi di server. Silakan atur secret GEMINI_API_KEY di Cloudflare / .dev.vars."
+      },
+      500
+    );
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const audioBase64 = body.audio;
+  const mimeType = body.mimeType || "audio/webm";
+
+  if (!audioBase64 || typeof audioBase64 !== "string") {
+    return c.json({ error: "Data rekaman audio tidak ditemukan atau tidak valid." }, 400);
+  }
+
+  // Batas 5 MB base64 (~3.75 MB binary audio, sangat cukup untuk rekaman 30 detik)
+  if (audioBase64.length > 5 * 1024 * 1024) {
+    return c.json({ error: "Ukuran rekaman audio terlalu besar (maksimal 30 detik)." }, 400);
+  }
+
+  const promptText = `Anda adalah asisten pencatatan log harian operasional utilitas pabrik DSM-Firmenich.
+Dengarkan rekaman audio dari operator utilitas lapangan (yang mengawasi sistem chiller, boiler, kompresor udara, water treatment plant/WTP, WWTP, genset, cooling tower, HVAC, pompa transfer, panel elektrikal, dll.).
+
+Tugas Anda:
+1. Transkripsi suara operator ke dalam bahasa Indonesia baku. Rapikan kalimatnya menjadi satu nama kegiatan kerja yang ringkas, jelas, padat, dan diawali huruf kapital (contoh: "Pengecekan rutin parameter operasional chiller 1", "Pembersihan area WTP dan penambahan tawas", "Istirahat dan makan siang", "Briefing serah terima tugas shift"). Buang kata pengisi percakapan seperti "eee", "anu", "lagi", "tadi", "tolong", "mas", "pak", dll.
+2. Klasifikasikan kegiatan tersebut ke SALAH SATU dari 12 kategori standar berikut:
+   - Admin
+   - Operational
+   - Preventive
+   - Corrective
+   - Support
+   - Mobilitas
+   - Meeting
+   - Istirahat
+   - Project
+   - Training
+   - Cuti
+   - Improvement
+
+Keluarkan respon HANYA dalam format JSON berikut:
+{
+  "kegiatan": "Deskripsi kegiatan yang sudah dirapikan",
+  "kategori": "Salah satu dari 12 kategori di atas"
+}`;
+
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+    
+    // Normalisasi mimeType sederhana
+    const cleanMime = mimeType.split(";")[0].trim() || "audio/webm";
+
+    const payload = {
+      contents: [
+        {
+          parts: [
+            {
+              inline_data: {
+                mime_type: cleanMime,
+                data: audioBase64
+              }
+            },
+            {
+              text: promptText
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            kegiatan: { type: "STRING" },
+            kategori: {
+              type: "STRING",
+              enum: VALID_CATEGORIES
+            }
+          },
+          required: ["kegiatan", "kategori"]
+        }
+      }
+    };
+
+    const res = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null) as any;
+      const errMsg = errJson?.error?.message || "";
+      if (res.status === 402 || errMsg.includes("prepayment") || errMsg.includes("credits")) {
+        return c.json(
+          {
+            error:
+              "Kredit Google Gemini API telah habis (402 Payment Required). Silakan top-up atau perbarui billing di Google AI Studio (ai.studio/projects)."
+          },
+          402
+        );
+      }
+      if (res.status === 429) {
+        return c.json(
+          { error: "Batas permintaan Gemini API tercapai (Rate Limit). Silakan coba beberapa saat lagi." },
+          429
+        );
+      }
+      return c.json(
+        {
+          error: `Gagal memproses suara dengan Gemini (${res.status}): ${errMsg || "Terjadi kesalahan pada layanan AI"}`
+        },
+        res.status as any
+      );
+    }
+
+    const data = await res.json() as any;
+    const textPart = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!textPart) {
+      return c.json({ error: "Suara tidak terdengar jelas atau kosong. Silakan ulangi rekaman suara." }, 422);
+    }
+
+    let parsed: { kegiatan?: string; kategori?: string } = {};
+    try {
+      parsed = JSON.parse(textPart);
+    } catch {
+      parsed = { kegiatan: textPart.trim(), kategori: "Operational" };
+    }
+
+    let kegiatan = (parsed.kegiatan || "").trim();
+    if (kegiatan.length > 0) {
+      kegiatan = kegiatan.charAt(0).toUpperCase() + kegiatan.slice(1);
+    } else {
+      return c.json({ error: "Tidak ada kata yang teridentifikasi dalam rekaman. Silakan coba lagi." }, 422);
+    }
+
+    let kategori = (parsed.kategori || "").trim();
+    const matchedCategory = VALID_CATEGORIES.find(
+      (cat) => cat.toLowerCase() === kategori.toLowerCase()
+    );
+    kategori = matchedCategory || "Operational";
+
+    return c.json({
+      kegiatan,
+      kategori
+    });
+  } catch (err: any) {
+    console.error("Transcribe error:", err);
+    return c.json({ error: `Gagal memproses rekaman: ${err?.message || "Kesalahan internal"}` }, 500);
+  }
 });
 
 export const onRequest: PagesFunction<Bindings> = async (context) => {

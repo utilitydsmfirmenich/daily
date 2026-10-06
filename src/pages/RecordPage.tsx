@@ -17,6 +17,7 @@ import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { QuickCategoryPills } from "../components/QuickCategoryPills";
 import { TodayActivitiesTable } from "../components/TodayActivitiesTable";
 import { TimeInput } from "../components/TimeInput";
+import { MicButton } from "../components/MicButton";
 import { generateActivitiesExcel } from "../lib/excel-generator";
 import { 
   Clock, 
@@ -759,10 +760,29 @@ export const RecordPage: React.FC = () => {
 
           {/* Row 3: Kegiatan (Wajib) */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-semibold text-slate-300">
-                Kegiatan <span className="text-red-400">*</span>
-              </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Kegiatan <span className="text-red-400">*</span>
+                </label>
+                <MicButton
+                  size="sm"
+                  disabled={submitting}
+                  onResult={(voiceKegiatan, voiceKategori) => {
+                    setKegiatan(voiceKegiatan);
+                    if (voiceKategori) {
+                      setKategori(voiceKategori);
+                    }
+                    setTimeout(() => {
+                      if (kegiatanInputRef.current) {
+                        kegiatanInputRef.current.focus();
+                        const len = voiceKegiatan.length;
+                        kegiatanInputRef.current.setSelectionRange(len, len);
+                      }
+                    }, 50);
+                  }}
+                />
+              </div>
               <span className="text-[11px] text-slate-400 font-mono">
                 {kegiatan.length}/1000
               </span>

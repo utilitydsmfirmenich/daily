@@ -169,5 +169,12 @@ export const api = {
       body: JSON.stringify({ batch_id })
     }),
 
-  getImportBatches: () => request<{ batches: ImportBatch[] }>("/api/import/batches")
+  getImportBatches: () => request<{ batches: ImportBatch[] }>("/api/import/batches"),
+
+  // Voice to text & auto-categorization
+  transcribeVoice: (audioBase64: string, mimeType: string) =>
+    request<{ kegiatan: string; kategori: string }>("/api/voice/transcribe", {
+      method: "POST",
+      body: JSON.stringify({ audio: audioBase64, mimeType })
+    })
 };

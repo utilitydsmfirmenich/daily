@@ -17,6 +17,7 @@ import { QuickActivityButtons } from "../components/QuickActivityButtons";
 import { QuickDurationButtons } from "../components/QuickDurationButtons";
 import { QuickCategoryPills } from "../components/QuickCategoryPills";
 import { TimeInput } from "../components/TimeInput";
+import { MicButton } from "../components/MicButton";
 import { 
   History as HistoryIcon, 
   Search, 
@@ -867,7 +868,28 @@ export const HistoryPage: React.FC = () => {
                   }}
                   className="mb-3"
                 />
-                <label className="block font-semibold text-slate-300 mb-1">Kegiatan *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <label className="block font-semibold text-slate-300">Kegiatan *</label>
+                    <MicButton
+                      size="sm"
+                      onResult={(voiceKegiatan, voiceKategori) => {
+                        setEditForm((prev) => ({
+                          ...prev!,
+                          kegiatan: voiceKegiatan,
+                          kategori: voiceKategori || prev!.kategori
+                        }));
+                        setTimeout(() => {
+                          if (editKegiatanRef.current) {
+                            editKegiatanRef.current.focus();
+                            const len = voiceKegiatan.length;
+                            editKegiatanRef.current.setSelectionRange(len, len);
+                          }
+                        }, 50);
+                      }}
+                    />
+                  </div>
+                </div>
                 <textarea
                   ref={editKegiatanRef}
                   rows={3}
