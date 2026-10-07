@@ -7,13 +7,15 @@ interface MicButtonProps {
   disabled?: boolean;
   className?: string;
   size?: "sm" | "md";
+  errorPlacement?: "top" | "bottom";
 }
 
 export const MicButton: React.FC<MicButtonProps> = ({
   onResult,
   disabled = false,
   className = "",
-  size = "md"
+  size = "md",
+  errorPlacement = "bottom"
 }) => {
   const [state, setState] = useState<"idle" | "recording" | "processing">("idle");
   const [secondsLeft, setSecondsLeft] = useState(30);
@@ -245,7 +247,11 @@ export const MicButton: React.FC<MicButtonProps> = ({
 
       {/* Error alert toast */}
       {errorMessage && (
-        <div className="absolute top-full left-0 mt-1.5 z-50 w-72 p-2.5 rounded-lg bg-red-950/95 border border-red-500/50 text-red-200 text-xs shadow-xl backdrop-blur-sm flex items-start gap-2">
+        <div
+          className={`absolute ${
+            errorPlacement === "top" ? "bottom-full right-0 mb-1.5" : "top-full left-0 mt-1.5"
+          } z-50 w-72 p-2.5 rounded-lg bg-red-950/95 border border-red-500/50 text-red-200 text-xs shadow-xl backdrop-blur-sm flex items-start gap-2`}
+        >
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="leading-snug">{errorMessage}</p>

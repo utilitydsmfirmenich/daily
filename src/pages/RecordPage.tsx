@@ -73,6 +73,7 @@ export const RecordPage: React.FC = () => {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   const [isShiftActive, setIsShiftActive] = useState(false);
+  const [showDateInputs, setShowDateInputs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -543,7 +544,7 @@ export const RecordPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-24 text-slate-100">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-36 sm:pb-24 text-slate-100">
       {/* Live Header & Clock */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 bg-slate-800/80 border border-slate-700/80 p-4 rounded-2xl shadow-sm">
         <div>
@@ -624,38 +625,68 @@ export const RecordPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
-          {/* Row 1: Tanggal & Hari */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Tanggal (dd/mm/yyyy)
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={tanggal}
-                  onChange={(e) => handleDateChange(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                />
+        <form id="record-form" onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
+          {/* Row 1: Tanggal & Hari (Mobile Collapsible, Desktop Always Visible) */}
+          <div className="space-y-2">
+            {/* Mobile Compact Date Pill (<640px) */}
+            <div className="sm:hidden flex items-center justify-between p-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl shadow-inner">
+              <div className="flex items-center gap-2 text-xs min-w-0">
+                <Calendar className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <span className="font-semibold text-white truncate">
+                  {hari}, {formatDateToIndonesian(tanggal)}
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${
+                    shift === "SHIFT_2"
+                      ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                      : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                  }`}
+                >
+                  {shift === "SHIFT_2" ? "Shift 2" : "Shift 1"}
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowDateInputs((prev) => !prev)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-900/30 hover:bg-blue-900/50 px-2.5 py-1 rounded-lg border border-blue-700/40 transition flex-shrink-0"
+              >
+                <Edit3 className="w-3 h-3" />
+                <span>{showDateInputs ? "Tutup" : "Ubah"}</span>
+              </button>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Hari
-              </label>
-              <select
-                value={hari}
-                onChange={(e) => setHari(e.target.value as DayName)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-              >
-                {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+            {/* Manual Date & Day Inputs */}
+            <div className={`${showDateInputs ? "grid" : "hidden sm:grid"} grid-cols-1 sm:grid-cols-2 gap-4 items-end animate-in fade-in duration-150`}>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Tanggal (dd/mm/yyyy)
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={tanggal}
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Hari
+                </label>
+                <select
+                  value={hari}
+                  onChange={(e) => setHari(e.target.value as DayName)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                >
+                  {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -877,7 +908,7 @@ export const RecordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/20 disabled:opacity-50 transition"
+                className="hidden sm:flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/20 disabled:opacity-50 transition"
               >
                 <span>SIMPAN KEGIATAN</span>
                 <ArrowRight className="w-4 h-4" />
@@ -899,9 +930,77 @@ export const RecordPage: React.FC = () => {
         />
       </div>
 
+      {/* Mobile Sticky Bottom Action Bar (<640px) */}
+      <div className="sm:hidden fixed bottom-16 left-0 right-0 z-30 px-3.5 py-2.5 bg-slate-900/95 backdrop-blur-md border-t border-slate-700/80 shadow-2xl flex items-center justify-between gap-2.5">
+        {/* Left: Summary (Time Range + Duration + Shift Badge) */}
+        <div className="flex flex-col min-w-0 pr-1">
+          <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-white">
+            <span>{startTime || "--:--"}</span>
+            <span className="text-slate-400 font-sans">→</span>
+            <span>{finishTime || "--:--"}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span className={durationResult.isValid ? "text-emerald-400 font-bold font-mono" : "text-slate-500 font-mono"}>
+              {durationResult.isValid ? `${durationResult.durationMin} mnt` : "—"}
+            </span>
+            <span>•</span>
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                shift === "SHIFT_2"
+                  ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                  : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+              }`}
+            >
+              {shift === "SHIFT_2" ? "Shift 2" : "Shift 1"}
+            </span>
+          </div>
+        </div>
+
+        {/* Right: Quick Mic + Thumb Save Button */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <MicButton
+            size="sm"
+            disabled={submitting}
+            errorPlacement="top"
+            onResult={(voiceKegiatan, voiceKategori) => {
+              setKegiatan(voiceKegiatan);
+              if (voiceKategori) {
+                setKategori(voiceKategori);
+              }
+              setTimeout(() => {
+                if (kegiatanInputRef.current) {
+                  kegiatanInputRef.current.focus();
+                  const len = voiceKegiatan.length;
+                  kegiatanInputRef.current.setSelectionRange(len, len);
+                }
+              }, 50);
+            }}
+          />
+
+          <button
+            type="submit"
+            form="record-form"
+            disabled={submitting}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 active:bg-blue-700 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 disabled:opacity-50 transition min-w-[88px]"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Simpan</span>
+              </>
+            ) : (
+              <>
+                <span>Simpan</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Undo Snackbar Notification */}
       {undoItem && (
-        <div className="fixed bottom-20 sm:bottom-6 right-6 z-50 bg-slate-800 border border-blue-500/40 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+        <div className="fixed bottom-36 sm:bottom-6 right-6 z-50 bg-slate-800 border border-blue-500/40 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
           <span className="text-xs">Catatan berhasil dihapus.</span>
           <button
             type="button"
