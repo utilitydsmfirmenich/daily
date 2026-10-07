@@ -87,13 +87,16 @@ export const Navbar: React.FC = () => {
       <header className="sticky top-0 z-40 bg-slate-800/95 backdrop-blur border-b border-slate-700/80 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-2.5 text-white font-bold tracking-tight hover:opacity-90">
+            <Link to="/" className="flex items-center gap-2 text-white font-bold tracking-tight hover:opacity-90">
               <img
                 src="/logo.png"
                 alt="Log Harian Utility"
                 className="w-8 h-8 rounded-lg object-contain drop-shadow-sm"
               />
-              <span className="text-base font-semibold">Log Harian Utility</span>
+              <span className="text-sm sm:text-base font-semibold">Log Harian Utility</span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                v1.4.0
+              </span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -158,9 +161,14 @@ export const Navbar: React.FC = () => {
 
             {dropdownOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl py-1 z-50 text-xs text-slate-200 divide-y divide-slate-700/60">
-                <div className="px-4 py-2.5 bg-slate-850">
-                  <p className="text-[11px] text-slate-400">Login sebagai:</p>
-                  <p className="font-semibold text-white truncate">{user.display_name || user.pid}</p>
+                <div className="px-4 py-2.5 bg-slate-850 flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-slate-400">Login sebagai:</p>
+                    <p className="font-semibold text-white truncate">{user.display_name || user.pid}</p>
+                  </div>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 ml-2 flex-shrink-0">
+                    v1.4.0
+                  </span>
                 </div>
 
                 <div className="py-1">
